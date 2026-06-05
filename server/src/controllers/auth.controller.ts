@@ -352,7 +352,7 @@ export const resetPassword = async (
   const user = await User.findOne({
     passwordResetToken: hashedToken,
     passwordResetExpires: { $gt: new Date() },
-  }).select("+password");
+  }).select("+password +passwordHistory");
 
   if (!user) {
     res.status(400).json({ error: "Invalid or expired password reset token" });

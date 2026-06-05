@@ -9,3 +9,18 @@
 {"level":"info","message":"Server listening on port 5000","timestamp":"2026-06-06 00:59:15"}
 {"level":"info","message":"MongoDB connected: ac-5dcg08g-shard-00-00.2uxtuyz.mongodb.net","timestamp":"2026-06-06 01:01:04"}
 {"level":"info","message":"Server listening on port 5000","timestamp":"2026-06-06 01:01:04"}
+{"level":"info","message":"MongoDB connected: ac-5dcg08g-shard-00-02.2uxtuyz.mongodb.net","timestamp":"2026-06-06 01:01:37"}
+{"level":"info","message":"Server listening on port 5000","timestamp":"2026-06-06 01:01:37"}
+{"level":"info","message":"Email sent to rezen.khadgi@gmail.com: GyanKosh Security Alert: new login","timestamp":"2026-06-06 01:02:00"}
+{"level":"info","message":"::1 - - [05/Jun/2026:19:17:00 +0000] \"POST /api/auth/login HTTP/1.1\" 200 592 \"-\" \"PostmanRuntime/7.51.1\"","timestamp":"2026-06-06 01:02:00"}
+{"level":"info","message":"Email sent to j8233310@gmail.com: Verify your Gyankosh account","timestamp":"2026-06-06 01:04:15"}
+{"level":"info","message":"::1 - - [05/Jun/2026:19:19:15 +0000] \"POST /api/auth/register HTTP/1.1\" 201 83 \"-\" \"PostmanRuntime/7.51.1\"","timestamp":"2026-06-06 01:04:15"}
+{"level":"info","message":"::1 - - [05/Jun/2026:19:19:34 +0000] \"GET /api/auth/verify-email/7d20d7aaa89ac672b219e21cde5c64d5f42d7e46369bbccdd673dfc52b63b72b HTTP/1.1\" 200 42 \"-\" \"PostmanRuntime/7.51.1\"","timestamp":"2026-06-06 01:04:34"}
+{"level":"info","message":"Email sent to j8233310@gmail.com: GyanKosh Security Alert: new login","timestamp":"2026-06-06 01:05:18"}
+{"level":"info","message":"::1 - - [05/Jun/2026:19:20:18 +0000] \"POST /api/auth/login HTTP/1.1\" 200 584 \"-\" \"PostmanRuntime/7.51.1\"","timestamp":"2026-06-06 01:05:18"}
+{"level":"info","message":"::1 - - [05/Jun/2026:19:26:25 +0000] \"POST /api/auth/refresh HTTP/1.1\" 200 428 \"-\" \"PostmanRuntime/7.51.1\"","timestamp":"2026-06-06 01:11:25"}
+{"level":"info","message":"::1 - - [05/Jun/2026:19:27:29 +0000] \"POST /api/auth/logout HTTP/1.1\" 200 37 \"-\" \"PostmanRuntime/7.51.1\"","timestamp":"2026-06-06 01:12:29"}
+{"level":"info","message":"Email sent to rezen.khadgi@gmail.com: Reset your GyanKosh password","timestamp":"2026-06-06 01:14:42"}
+{"level":"info","message":"::1 - - [05/Jun/2026:19:29:42 +0000] \"POST /api/auth/request-password-reset HTTP/1.1\" 200 61 \"-\" \"PostmanRuntime/7.51.1\"","timestamp":"2026-06-06 01:14:42"}
+{"level":"info","message":"MongoDB connected: ac-5dcg08g-shard-00-02.2uxtuyz.mongodb.net","timestamp":"2026-06-06 01:19:16"}
+{"level":"info","message":"Server listening on port 5000","timestamp":"2026-06-06 01:19:16"}

@@ -4,3 +4,11 @@
 {"level":"info","message":{"email":"rezen.khadgi@gmail.com","event":"email_verified","ip":"::1","timestamp":"2026-06-05T19:13:38.467Z","userId":"6a231fca00cac77e01681de7"},"timestamp":"2026-06-06 00:58:38"}
 {"level":"info","message":{"env":"development","event":"server_started","ip":"system","port":5000,"timestamp":"2026-06-05T19:14:15.749Z","userId":"anonymous"},"timestamp":"2026-06-06 00:59:15"}
 {"level":"info","message":{"env":"development","event":"server_started","ip":"system","port":5000,"timestamp":"2026-06-05T19:16:04.905Z","userId":"anonymous"},"timestamp":"2026-06-06 01:01:04"}
+{"level":"info","message":{"env":"development","event":"server_started","ip":"system","port":5000,"timestamp":"2026-06-05T19:16:37.568Z","userId":"anonymous"},"timestamp":"2026-06-06 01:01:37"}
+{"level":"info","message":{"email":"rezen.khadgi@gmail.com","event":"login_success","ip":"::1","role":"user","timestamp":"2026-06-05T19:17:00.427Z","userId":"6a231fca00cac77e01681de7"},"timestamp":"2026-06-06 01:02:00"}
+{"level":"info","message":{"email":"j8233310@gmail.com","event":"user_registered","ip":"::1","timestamp":"2026-06-05T19:19:15.604Z","userId":"6a23212fae2f80b350d4683b","username":"Jadien"},"timestamp":"2026-06-06 01:04:15"}
+{"level":"info","message":{"email":"j8233310@gmail.com","event":"email_verified","ip":"::1","timestamp":"2026-06-05T19:19:34.222Z","userId":"6a23212fae2f80b350d4683b"},"timestamp":"2026-06-06 01:04:34"}
+{"level":"info","message":{"email":"j8233310@gmail.com","event":"login_success","ip":"::1","role":"user","timestamp":"2026-06-05T19:20:18.106Z","userId":"6a23212fae2f80b350d4683b"},"timestamp":"2026-06-06 01:05:18"}
+{"level":"info","message":{"event":"logout","ip":"::1","timestamp":"2026-06-05T19:27:29.878Z","userAgent":"PostmanRuntime/7.51.1","userId":"6a23212fae2f80b350d4683b"},"timestamp":"2026-06-06 01:12:29"}
+{"level":"info","message":{"email":"rezen.khadgi@gmail.com","event":"password_reset_requested","ip":"::1","timestamp":"2026-06-05T19:29:42.571Z","userId":"6a231fca00cac77e01681de7"},"timestamp":"2026-06-06 01:14:42"}
+{"level":"info","message":{"env":"development","event":"server_started","ip":"system","port":5000,"timestamp":"2026-06-05T19:34:16.290Z","userId":"anonymous"},"timestamp":"2026-06-06 01:19:16"}
