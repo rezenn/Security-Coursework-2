@@ -2,7 +2,6 @@ import nodemailer from "nodemailer";
 import config from "../config/env.config";
 import logger from "../utils/logger.utils";
 
-// ─── Create transporter ───────────────────────────────────────────────────────
 const transporter = nodemailer.createTransport({
   host: config.email.host,
   port: config.email.port,
@@ -12,12 +11,11 @@ const transporter = nodemailer.createTransport({
     pass: config.email.pass,
   },
   tls: {
-    rejectUnauthorized: config.env === "production", // Enforce cert check in prod
+    rejectUnauthorized: config.env === "production",
     minVersion: "TLSv1.2",
   },
 });
 
-// ─── Base HTML template ───────────────────────────────────────────────────────
 const baseTemplate = (title: string, content: string): string => `
 <!DOCTYPE html>
 <html>
@@ -51,7 +49,6 @@ const baseTemplate = (title: string, content: string): string => `
 </html>
 `;
 
-// ─── Send verification email ──────────────────────────────────────────────────
 export const sendVerificationEmail = async (
   to: string,
   username: string,
@@ -77,7 +74,6 @@ export const sendVerificationEmail = async (
   );
 };
 
-// ─── Send password reset email ────────────────────────────────────────────────
 export const sendPasswordResetEmail = async (
   to: string,
   username: string,
@@ -103,7 +99,6 @@ export const sendPasswordResetEmail = async (
   );
 };
 
-// ─── Send security alert email ────────────────────────────────────────────────
 export const sendSecurityAlertEmail = async (
   to: string,
   username: string,
@@ -138,7 +133,6 @@ export const sendSecurityAlertEmail = async (
   );
 };
 
-// ─── Core send function ───────────────────────────────────────────────────────
 const sendEmail = async (
   to: string,
   subject: string,
@@ -172,7 +166,6 @@ const sendEmail = async (
 
     logger.info(`Email sent to ${to}: ${subject}`);
   } catch (error) {
-    // Never throw — email failure shouldn't crash the app
     logger.error(`Failed to send email to ${to}:`, error);
   }
 };

@@ -1,10 +1,10 @@
 import zxcvbn from 'zxcvbn';
 
 export interface PasswordStrengthResult {
-  score: 0 | 1 | 2 | 3 | 4;   // 0=terrible, 4=strong
+  score: 0 | 1 | 2 | 3 | 4;   
   label: 'Very Weak' | 'Weak' | 'Fair' | 'Strong' | 'Very Strong';
   feedback: string[];
-  isAcceptable: boolean;       // Must be score >= 3 for registration
+  isAcceptable: boolean;       
   crackTime: string;
 }
 
@@ -13,7 +13,6 @@ export interface PasswordPolicyResult {
   errors: string[];
 }
 
-// ─── Policy constants (aligned with NIST SP 800-63B) ─────────────────────────
 const PASSWORD_POLICY = {
   minLength: 12,
   maxLength: 128,
@@ -24,10 +23,9 @@ const PASSWORD_POLICY = {
   specialChars: '!@#$%^&*()_+-=[]{}|;:,.<>?',
 };
 
-// ─── Assess password strength using zxcvbn ────────────────────────────────────
 export const assessPasswordStrength = (
   password: string,
-  userInputs: string[] = []   // Pass email/username to penalise their use
+  userInputs: string[] = []   
 ): PasswordStrengthResult => {
   const result = zxcvbn(password, userInputs);
 
@@ -52,7 +50,6 @@ export const assessPasswordStrength = (
   };
 };
 
-// ─── Validate password against policy ────────────────────────────────────────
 export const validatePasswordPolicy = (password: string): PasswordPolicyResult => {
   const errors: string[] = [];
 
@@ -83,7 +80,6 @@ export const validatePasswordPolicy = (password: string): PasswordPolicyResult =
     errors.push('Password must contain at least one special character (!@#$%^&* etc.)');
   }
 
-  // Check for common patterns (basic — zxcvbn handles deeper analysis)
   if (/^(.)\1+$/.test(password)) {
     errors.push('Password cannot be all the same character');
   }
@@ -98,7 +94,6 @@ export const validatePasswordPolicy = (password: string): PasswordPolicyResult =
   };
 };
 
-// ─── Generate a secure random password (for temp passwords / reset suggestions)
 export const generateSecurePassword = (): string => {
   const chars = {
     upper: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
@@ -110,17 +105,14 @@ export const generateSecurePassword = (): string => {
   const allChars = Object.values(chars).join('');
   let password = '';
 
-  // Ensure at least one of each category
   Object.values(chars).forEach((charSet) => {
     password += charSet[Math.floor(Math.random() * charSet.length)];
   });
 
-  // Fill remaining length with random chars
   for (let i = password.length; i < 16; i++) {
     password += allChars[Math.floor(Math.random() * allChars.length)];
   }
 
-  // Shuffle the password
   return password
     .split('')
     .sort(() => Math.random() - 0.5)

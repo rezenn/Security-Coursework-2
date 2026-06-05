@@ -4,12 +4,11 @@ const ms = require("ms");
 import config from "../config/env.config";
 import { UserRole } from "../models/user.model";
 
-// ─── Token Payload Types ──────────────────────────────────────────────────────
 export interface AccessTokenPayload {
   sub: string; // User ID
   email: string;
   role: UserRole;
-  sessionId: string; // Ties access token to a specific session
+  sessionId: string; 
   iat?: number;
   exp?: number;
 }
@@ -21,7 +20,6 @@ export interface RefreshTokenPayload {
   exp?: number;
 }
 
-// ─── Generate Access Token (short-lived: 15 min) ─────────────────────────────
 export const generateAccessToken = (
   userId: string,
   email: string,
@@ -41,7 +39,6 @@ export const generateAccessToken = (
   );
 };
 
-// ─── Generate Refresh Token (long-lived: 7 days) ─────────────────────────────
 export const generateRefreshToken = (
   userId: string,
   sessionId: string,
@@ -59,7 +56,6 @@ export const generateRefreshToken = (
   );
 };
 
-// ─── Verify Access Token ──────────────────────────────────────────────────────
 export const verifyAccessToken = (token: string): AccessTokenPayload => {
   return jwt.verify(token, config.jwt.accessSecret, {
     issuer: "secureapp",
@@ -68,7 +64,6 @@ export const verifyAccessToken = (token: string): AccessTokenPayload => {
   }) as AccessTokenPayload;
 };
 
-// ─── Verify Refresh Token ─────────────────────────────────────────────────────
 export const verifyRefreshToken = (token: string): RefreshTokenPayload => {
   return jwt.verify(token, config.jwt.refreshSecret, {
     issuer: "secureapp",
@@ -77,18 +72,14 @@ export const verifyRefreshToken = (token: string): RefreshTokenPayload => {
   }) as RefreshTokenPayload;
 };
 
-// ─── Hash a refresh token for DB storage ─────────────────────────────────────
-// We never store raw tokens — only SHA-256 hashes
 export const hashToken = (token: string): string => {
   return crypto.createHash("sha256").update(token).digest("hex");
 };
 
-// ─── Generate a cryptographically secure session ID ──────────────────────────
 export const generateSessionId = (): string => {
   return crypto.randomBytes(32).toString("hex");
 };
 
-// ─── Extract token from Authorization header ──────────────────────────────────
 export const extractBearerToken = (
   authHeader: string | undefined,
 ): string | null => {
@@ -96,7 +87,6 @@ export const extractBearerToken = (
   const token = authHeader.split(" ")[1];
   return token || null;
 };
-// ─── Convert a JWT expiresIn string into an expiration Date ──────────────────────────────────
 export const getTokenExpiryDate = (expiresIn: string): Date => {
   const milliseconds = ms(expiresIn);
   if (!milliseconds) {
