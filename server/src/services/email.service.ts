@@ -36,12 +36,12 @@ const baseTemplate = (title: string, content: string): string => `
 </head>
 <body>
   <div class="container">
-    <div class="header"><h2>SecureApp</h2></div>
+    <div class="header"><h2>GyanKosh</h2></div>
     <div style="padding: 30px 0;">
       ${content}
     </div>
     <div class="footer">
-      <p>This email was sent from SecureApp. If you didn't request this, please ignore it.</p>
+      <p>This email was sent from GyanKosh. If you didn't request this, please ignore it.</p>
       <p>For security, links expire after the stated time period.</p>
     </div>
   </div>
@@ -69,7 +69,7 @@ export const sendVerificationEmail = async (
 
   await sendEmail(
     to,
-    "Verify your SecureApp account",
+    "Verify your Gyankosh account",
     baseTemplate("Email Verification", content),
   );
 };
@@ -94,7 +94,7 @@ export const sendPasswordResetEmail = async (
 
   await sendEmail(
     to,
-    "Reset your SecureApp password",
+    "Reset your GyanKosh password",
     baseTemplate("Password Reset", content),
   );
 };
@@ -128,7 +128,7 @@ export const sendSecurityAlertEmail = async (
 
   await sendEmail(
     to,
-    `SecureApp Security Alert: ${alertType.replace(/_/g, " ")}`,
+    `GyanKosh Security Alert: ${alertType.replace(/_/g, " ")}`,
     baseTemplate("Security Alert", content),
   );
 };

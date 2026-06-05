@@ -164,3 +164,15 @@
 {"level":"info","message":"Server listening on port 5000","timestamp":"2026-06-05 22:56:26"}
 {"level":"info","message":"MongoDB connected: ac-5dcg08g-shard-00-01.2uxtuyz.mongodb.net","timestamp":"2026-06-05 22:56:40"}
 {"level":"info","message":"Server listening on port 5000","timestamp":"2026-06-05 22:56:40"}
+{"level":"info","message":"MongoDB connected: ac-5dcg08g-shard-00-00.2uxtuyz.mongodb.net","timestamp":"2026-06-05 22:57:13"}
+{"level":"info","message":"Server listening on port 5000","timestamp":"2026-06-05 22:57:13"}
+{"level":"info","message":"MongoDB connected: ac-5dcg08g-shard-00-01.2uxtuyz.mongodb.net","timestamp":"2026-06-05 22:58:40"}
+{"level":"info","message":"Server listening on port 5000","timestamp":"2026-06-05 22:58:40"}
+{"level":"info","message":"::1 - - [05/Jun/2026:17:14:01 +0000] \"POST /api/auth/register HTTP/1.1\" 422 81 \"-\" \"PostmanRuntime/7.51.1\"","timestamp":"2026-06-05 22:59:01"}
+{"level":"info","message":"::1 - - [05/Jun/2026:17:14:15 +0000] \"POST /api/auth/register HTTP/1.1\" 400 349 \"-\" \"PostmanRuntime/7.51.1\"","timestamp":"2026-06-05 22:59:15"}
+{"level":"info","message":"::1 - - [05/Jun/2026:17:14:28 +0000] \"POST /api/auth/register HTTP/1.1\" 400 296 \"-\" \"PostmanRuntime/7.51.1\"","timestamp":"2026-06-05 22:59:28"}
+{"level":"info","message":"::1 - - [05/Jun/2026:17:14:34 +0000] \"POST /api/auth/register HTTP/1.1\" 400 253 \"-\" \"PostmanRuntime/7.51.1\"","timestamp":"2026-06-05 22:59:34"}
+{"level":"info","message":"Email sent to rezen.khadgi@gmail.com: Verify your SecureApp account","timestamp":"2026-06-05 22:59:48"}
+{"level":"info","message":"::1 - - [05/Jun/2026:17:14:48 +0000] \"POST /api/auth/register HTTP/1.1\" 201 83 \"-\" \"PostmanRuntime/7.51.1\"","timestamp":"2026-06-05 22:59:48"}
+{"level":"info","message":"MongoDB connected: ac-5dcg08g-shard-00-02.2uxtuyz.mongodb.net","timestamp":"2026-06-05 23:00:42"}
+{"level":"info","message":"Server listening on port 5000","timestamp":"2026-06-05 23:00:42"}
