@@ -1,0 +1,11 @@
+{"level":"info","message":"::1 - - [05/Jun/2026:19:11:26 +0000] \"POST /api/auth/register HTTP/1.1\" 409 44 \"-\" \"PostmanRuntime/7.51.1\"","timestamp":"2026-06-06 00:56:26"}
+{"level":"info","message":"::1 - - [05/Jun/2026:19:11:31 +0000] \"GET /api/auth/verify-email/ef8d44c06324b1f83cfa3979e9e2bc2251e2f698ba0ebe93a01843430b19d3ce HTTP/1.1\" 400 55 \"-\" \"PostmanRuntime/7.51.1\"","timestamp":"2026-06-06 00:56:31"}
+{"level":"info","message":"::1 - - [05/Jun/2026:19:12:02 +0000] \"GET /api/auth/verify-email/ab8e1ccd9b12299fcc6a232df3796fa7a43647642948a5913264a600e077f2b4 HTTP/1.1\" 200 42 \"-\" \"PostmanRuntime/7.51.1\"","timestamp":"2026-06-06 00:57:02"}
+{"level":"info","message":"::1 - - [05/Jun/2026:19:12:14 +0000] \"POST /api/auth/login HTTP/1.1\" 401 37 \"-\" \"PostmanRuntime/7.51.1\"","timestamp":"2026-06-06 00:57:14"}
+{"level":"info","message":"Email sent to rezen.khadgi@gmail.com: Verify your Gyankosh account","timestamp":"2026-06-06 00:58:19"}
+{"level":"info","message":"::1 - - [05/Jun/2026:19:13:19 +0000] \"POST /api/auth/register HTTP/1.1\" 201 83 \"-\" \"PostmanRuntime/7.51.1\"","timestamp":"2026-06-06 00:58:19"}
+{"level":"info","message":"::1 - - [05/Jun/2026:19:13:38 +0000] \"GET /api/auth/verify-email/1b346d5ff53bbd2b3536213ee84627840ea6eeff9f0375121c4853f36da209f0 HTTP/1.1\" 200 42 \"-\" \"PostmanRuntime/7.51.1\"","timestamp":"2026-06-06 00:58:38"}
+{"level":"info","message":"MongoDB connected: ac-5dcg08g-shard-00-00.2uxtuyz.mongodb.net","timestamp":"2026-06-06 00:59:15"}
+{"level":"info","message":"Server listening on port 5000","timestamp":"2026-06-06 00:59:15"}
+{"level":"info","message":"MongoDB connected: ac-5dcg08g-shard-00-00.2uxtuyz.mongodb.net","timestamp":"2026-06-06 01:01:04"}
+{"level":"info","message":"Server listening on port 5000","timestamp":"2026-06-06 01:01:04"}

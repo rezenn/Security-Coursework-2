@@ -63,6 +63,7 @@ const createSessionRecord = async (
   ip: string,
   userAgent: string,
 ) => {
+  user.activeRefreshTokens = user.activeRefreshTokens || [];
   user.activeRefreshTokens.push({
     tokenHash: hashToken(refreshToken),
     userAgent,
@@ -149,7 +150,7 @@ export const verifyEmail = async (
 export const login = async (req: Request, res: Response): Promise<void> => {
   const { email, password, mfaToken } = req.body;
   const user = await User.findOne({ email }).select(
-    "+password +mfa.secret +mfa.backupCodes +failedLoginAttempts +lockedUntil",
+    "+password +mfa.secret +mfa.backupCodes +failedLoginAttempts +lockedUntil +activeRefreshTokens",
   );
 
   if (!user) {
@@ -360,12 +361,10 @@ export const resetPassword = async (
 
   const policy = validatePasswordPolicy(password);
   if (!policy.valid) {
-    res
-      .status(400)
-      .json({
-        error: "Password does not meet requirements",
-        details: policy.errors,
-      });
+    res.status(400).json({
+      error: "Password does not meet requirements",
+      details: policy.errors,
+    });
     return;
   }
 

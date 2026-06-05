@@ -1,0 +1,6 @@
+{"level":"info","message":{"email":"rezen.khadgi@gmail.com","event":"email_verified","ip":"::1","timestamp":"2026-06-05T19:12:02.971Z","userId":"6a23046f00cac77e01681ddc"},"timestamp":"2026-06-06 00:57:02"}
+{"level":"info","message":{"email":"rezen.khadgi@gmail.com","event":"login_failed","failedAttempts":1,"ip":"::1","timestamp":"2026-06-05T19:12:14.133Z","userId":"6a23046f00cac77e01681ddc"},"timestamp":"2026-06-06 00:57:14"}
+{"level":"info","message":{"email":"rezen.khadgi@gmail.com","event":"user_registered","ip":"::1","timestamp":"2026-06-05T19:13:19.996Z","userId":"6a231fca00cac77e01681de7","username":"Rezen"},"timestamp":"2026-06-06 00:58:19"}
+{"level":"info","message":{"email":"rezen.khadgi@gmail.com","event":"email_verified","ip":"::1","timestamp":"2026-06-05T19:13:38.467Z","userId":"6a231fca00cac77e01681de7"},"timestamp":"2026-06-06 00:58:38"}
+{"level":"info","message":{"env":"development","event":"server_started","ip":"system","port":5000,"timestamp":"2026-06-05T19:14:15.749Z","userId":"anonymous"},"timestamp":"2026-06-06 00:59:15"}
+{"level":"info","message":{"env":"development","event":"server_started","ip":"system","port":5000,"timestamp":"2026-06-05T19:16:04.905Z","userId":"anonymous"},"timestamp":"2026-06-06 01:01:04"}
