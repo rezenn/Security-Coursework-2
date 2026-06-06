@@ -1,63 +1,79 @@
-import Image from "next/image";
+import Link from "next/link";
 
 export default function Home() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+    <div className="min-h-screen bg-slate-50 text-slate-900">
+      <main className="mx-auto flex min-h-screen max-w-4xl flex-col justify-center px-6 py-12">
+        <div className="rounded-3xl border border-slate-200 bg-white p-10 shadow-xl shadow-slate-200/50">
+          <div className="mb-8 text-center">
+            <p className="text-sm uppercase tracking-[0.3em] text-slate-500">
+              GyanKosh Secure App
+            </p>
+            <h1 className="mt-4 text-4xl font-semibold tracking-tight">
+              Secure authentication demo
+            </h1>
+            <p className="mt-3 text-slate-600">
+              Register, verify email, enable MFA, and access your profile with a
+              secure Next.js frontend.
+            </p>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Link
+              className="rounded-2xl border border-slate-200 bg-slate-50 px-6 py-7 text-left transition hover:border-slate-300 hover:bg-slate-100"
+              href="/register"
             >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+              <h2 className="text-xl font-semibold">Register</h2>
+              <p className="mt-2 text-slate-600">
+                Create a new account and verify your email.
+              </p>
+            </Link>
+            <Link
+              className="rounded-2xl border border-slate-200 bg-slate-50 px-6 py-7 text-left transition hover:border-slate-300 hover:bg-slate-100"
+              href="/login"
             >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+              <h2 className="text-xl font-semibold">Login</h2>
+              <p className="mt-2 text-slate-600">
+                Sign in with email and optionally MFA.
+              </p>
+            </Link>
+            <Link
+              className="rounded-2xl border border-slate-200 bg-slate-50 px-6 py-7 text-left transition hover:border-slate-300 hover:bg-slate-100"
+              href="/verify"
+            >
+              <h2 className="text-xl font-semibold">Verify Email</h2>
+              <p className="mt-2 text-slate-600">
+                Use the token from your verification email.
+              </p>
+            </Link>
+            <Link
+              className="rounded-2xl border border-slate-200 bg-slate-50 px-6 py-7 text-left transition hover:border-slate-300 hover:bg-slate-100"
+              href="/mfa"
+            >
+              <h2 className="text-xl font-semibold">Enable MFA</h2>
+              <p className="mt-2 text-slate-600">
+                Setup two-factor authentication for your account.
+              </p>
+            </Link>
+            <Link
+              className="rounded-2xl border border-slate-200 bg-slate-50 px-6 py-7 text-left transition hover:border-slate-300 hover:bg-slate-100"
+              href="/profile"
+            >
+              <h2 className="text-xl font-semibold">My Profile</h2>
+              <p className="mt-2 text-slate-600">
+                View account details and manage MFA.
+              </p>
+            </Link>
+            <Link
+              className="rounded-2xl border border-slate-200 bg-slate-50 px-6 py-7 text-left transition hover:border-slate-300 hover:bg-slate-100"
+              href="/request-password-reset"
+            >
+              <h2 className="text-xl font-semibold">Reset Password</h2>
+              <p className="mt-2 text-slate-600">
+                Request a reset link by email.
+              </p>
+            </Link>
+          </div>
         </div>
       </main>
     </div>

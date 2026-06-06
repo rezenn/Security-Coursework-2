@@ -31,10 +31,10 @@ export const decryptSecret = (encryptedData: string): string => {
 
 export interface MFASetupResult {
   secret: string;
-  otpauthUrl: string; 
-  qrCodeDataUrl: string; 
-  backupCodes: string[]; 
-  hashedBackupCodes: string[]; 
+  otpauthUrl: string;
+  qrCodeDataUrl: string;
+  backupCodes: string[];
+  hashedBackupCodes: string[];
 }
 
 export const generateMFASetup = async (
@@ -66,7 +66,7 @@ export const generateMFASetup = async (
     secret: encryptedSecret,
     otpauthUrl,
     qrCodeDataUrl,
-    backupCodes, 
+    backupCodes,
     hashedBackupCodes,
   };
 };
@@ -77,8 +77,8 @@ export const verifyTOTP = (encryptedSecret: string, token: string): boolean => {
     return speakeasy.totp.verify({
       secret: plainSecret,
       encoding: "base32",
-      token: token.replace(/\s/g, ""), 
-      window: 1, 
+      token: token.replace(/\s/g, ""),
+      window: 1,
     });
   } catch {
     return false;
@@ -87,8 +87,12 @@ export const verifyTOTP = (encryptedSecret: string, token: string): boolean => {
 
 export const verifyBackupCode = async (
   hashedBackupCodes: string[],
-  inputCode: string,
+  inputCode: string | undefined,
 ): Promise<number> => {
+  if (!inputCode) {
+    return -1;
+  }
+
   const normalizedCode = inputCode.trim().toUpperCase();
 
   for (let i = 0; i < hashedBackupCodes.length; i++) {

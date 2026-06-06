@@ -13,6 +13,7 @@ import {
 } from "../controllers/auth.controller";
 import { requireAuth } from "../middleware/auth.middleware";
 import { validateRequest } from "../middleware/validation.middleware";
+import { verifyRecaptcha } from "../middleware/recaptcha.middleware";
 
 const router = Router();
 
@@ -28,6 +29,7 @@ router.post(
       .withMessage("Password must be at least 12 characters"),
   ],
   validateRequest,
+  verifyRecaptcha,
   register,
 );
 
@@ -45,6 +47,7 @@ router.post(
     body("password").isString().notEmpty().withMessage("Password is required"),
   ],
   validateRequest,
+  verifyRecaptcha,
   login,
 );
 
@@ -55,6 +58,7 @@ router.post(
   "/request-password-reset",
   [body("email").isEmail().withMessage("Valid email is required")],
   validateRequest,
+  verifyRecaptcha,
   requestPasswordReset,
 );
 

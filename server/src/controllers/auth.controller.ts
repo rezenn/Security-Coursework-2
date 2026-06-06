@@ -189,6 +189,11 @@ export const login = async (req: Request, res: Response): Promise<void> => {
   }
 
   if (user.mfa.enabled) {
+    if (!mfaToken) {
+      res.status(401).json({ error: "MFA token is required" });
+      return;
+    }
+
     const verified =
       verifyTOTP(user.mfa.secret!, mfaToken) ||
       (await verifyBackupCode(user.mfa.backupCodes, mfaToken)) >= 0;

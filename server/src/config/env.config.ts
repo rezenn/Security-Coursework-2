@@ -92,6 +92,11 @@ const config = {
     sendInDevelopment:
       process.env.EMAIL_SEND_IN_DEVELOPMENT?.toLowerCase() === "true",
   },
+  recaptcha: {
+    secret: process.env.RECAPTCHA_SECRET_KEY || "",
+    siteKey: process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || "",
+    enabled: Boolean(process.env.RECAPTCHA_SECRET_KEY),
+  },
 
   rateLimit: {
     windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || "900000", 10),
