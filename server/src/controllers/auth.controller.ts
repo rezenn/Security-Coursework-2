@@ -210,9 +210,25 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     return;
   }
 
+  // If MFA is enabled, require MFA token
   if (user.mfa.enabled) {
     if (!mfaToken) {
-      res.status(401).json({ error: "MFA token is required" });
+      // Return MFA_REQUIRED status with temporary session
+      const sessionId = hashToken(`${user._id}-${Date.now()}`);
+      const tempToken = generateAccessToken(
+        user._id.toHexString(),
+        user.email,
+        user.role,
+        sessionId,
+        "2m", // Very short expiry for MFA verification only
+      );
+
+      res.status(401).json({
+        error: "MFA_REQUIRED",
+        message: "Multi-factor authentication is required",
+        tempToken,
+        mfaRequired: true,
+      });
       return;
     }
 
@@ -220,7 +236,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       verifyTOTP(user.mfa.secret!, mfaToken) ||
       (await verifyBackupCode(user.mfa.backupCodes, mfaToken)) >= 0;
     if (!verified) {
-      res.status(401).json({ error: "Valid MFA token is required" });
+      res.status(401).json({ error: "Invalid MFA token" });
       return;
     }
   }
@@ -263,6 +279,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       username: user.username,
       role: user.role,
       isEmailVerified: user.isEmailVerified,
+      mfaEnabled: user.mfa.enabled,
     },
   });
 };

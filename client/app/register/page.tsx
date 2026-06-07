@@ -1,12 +1,20 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import AppShell from "../components/AppShell";
+import {
+  AuthCard,
+  AuthInput,
+  AuthButton,
+  AuthAlert,
+} from "../components/AuthComponents";
 import { useRecaptcha } from "../hooks/useRecaptcha";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
 export default function RegisterPage() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -39,71 +47,77 @@ export default function RegisterPage() {
       }
 
       setMessage(
-        "Registration successful. Check your email for a verification code.",
+        "Registration successful! Check your email to verify your account.",
       );
-      setEmail("");
-      setUsername("");
-      setPassword("");
+      setTimeout(() => {
+        router.push("/verify");
+      }, 2000);
       setIsLoading(false);
     } catch (err) {
-      setError("reCAPTCHA verification failed. Please try again.");
+      setError("An error occurred. Please try again.");
       setIsLoading(false);
     }
   };
 
   return (
     <AppShell>
-      <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm shadow-slate-200/60">
-        <h2 className="mb-4 text-3xl font-semibold">Register</h2>
-        <form className="space-y-4" onSubmit={handleSubmit}>
-          <label className="block">
-            <span className="mb-2 block text-sm font-medium text-slate-700">
-              Email
-            </span>
-            <input
-              className="w-full rounded-2xl border border-slate-300 bg-slate-50 px-4 py-3 outline-none transition focus:border-slate-900"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              type="email"
-              required
-            />
-          </label>
-          <label className="block">
-            <span className="mb-2 block text-sm font-medium text-slate-700">
-              Username
-            </span>
-            <input
-              className="w-full rounded-2xl border border-slate-300 bg-slate-50 px-4 py-3 outline-none transition focus:border-slate-900"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              type="text"
-              required
-            />
-          </label>
-          <label className="block">
-            <span className="mb-2 block text-sm font-medium text-slate-700">
-              Password
-            </span>
-            <input
-              className="w-full rounded-2xl border border-slate-300 bg-slate-50 px-4 py-3 outline-none transition focus:border-slate-900"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              type="password"
-              required
-            />
-          </label>
-          <button
-            className="w-full rounded-2xl bg-slate-950 px-5 py-3 text-white transition hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
-            type="submit"
-            disabled={isLoading}
-          >
-            {isLoading ? "Creating account..." : "Create account"}
-          </button>
-          {message ? (
-            <p className="mt-2 text-sm text-emerald-700">{message}</p>
-          ) : null}
-          {error ? <p className="mt-2 text-sm text-rose-700">{error}</p> : null}
-        </form>
+      <div className="flex min-h-screen items-center justify-center px-4 py-12">
+        <div className="w-full max-w-md">
+          <AuthCard title="Create Account" subtitle="Join GyanKosh today">
+            {message && <AuthAlert type="success" message={message} />}
+            {error && <AuthAlert type="error" message={error} />}
+
+            <form onSubmit={handleSubmit} className="space-y-5">
+              <AuthInput
+                label="Email Address"
+                type="email"
+                placeholder="you@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+
+              <AuthInput
+                label="Username"
+                type="text"
+                placeholder="johndoe"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                required
+              />
+
+              <AuthInput
+                label="Password"
+                type="password"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+
+              <p className="text-xs text-slate-500">
+                Password must be at least 12 characters long with uppercase,
+                lowercase, number, and special character.
+              </p>
+
+              <AuthButton type="submit" loading={isLoading} variant="primary">
+                Create Account
+              </AuthButton>
+            </form>
+
+            <div className="mt-6 border-t border-slate-200 pt-6">
+              <p className="text-center text-sm text-slate-600">
+                Already have an account?{" "}
+                <a
+                  href="/login"
+                  className="font-medium text-blue-600 hover:text-blue-700"
+                >
+                  Sign in
+                </a>
+              </p>
+            </div>
+          </AuthCard>
+        </div>
       </div>
     </AppShell>
   );

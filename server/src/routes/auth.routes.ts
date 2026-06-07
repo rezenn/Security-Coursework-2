@@ -41,6 +41,13 @@ router.get(
 );
 
 router.post(
+  "/verify-email/:token",
+  [param("token").isLength({ min: 64, max: 64 }).withMessage("Invalid token")],
+  validateRequest,
+  verifyEmail,
+);
+
+router.post(
   "/verify-email",
   [
     body("email").isEmail().withMessage("Valid email is required"),

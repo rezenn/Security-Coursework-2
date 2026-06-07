@@ -8,7 +8,7 @@ export interface AccessTokenPayload {
   sub: string; // User ID
   email: string;
   role: UserRole;
-  sessionId: string; 
+  sessionId: string;
   iat?: number;
   exp?: number;
 }
@@ -25,9 +25,11 @@ export const generateAccessToken = (
   email: string,
   role: UserRole,
   sessionId: string,
+  customExpiry?: string,
 ): string => {
+  const expiryValue: string | number = customExpiry || config.jwt.accessExpires;
   const options: jwt.SignOptions = {
-    expiresIn: config.jwt.accessExpires as jwt.SignOptions["expiresIn"],
+    expiresIn: expiryValue as jwt.SignOptions["expiresIn"],
     algorithm: "HS256",
     issuer: "secureapp",
     audience: "secureapp-client",

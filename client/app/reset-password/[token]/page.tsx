@@ -1,7 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import AppShell from "../../components/AppShell";
+import {
+  AuthCard,
+  AuthInput,
+  AuthButton,
+  AuthAlert,
+} from "../../components/AuthComponents";
 import { useRecaptcha } from "../../hooks/useRecaptcha";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
@@ -11,11 +18,14 @@ export default function ResetPasswordPage({
 }: {
   params: { token?: string };
 }) {
+  const router = useRouter();
   const token = params.token;
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [status, setStatus] = useState("ready");
+  const [status, setStatus] = useState<"ready" | "invalid" | "success">(
+    "ready",
+  );
   const [isLoading, setIsLoading] = useState(false);
   const { getToken } = useRecaptcha();
 
@@ -56,50 +66,92 @@ export default function ResetPasswordPage({
         return;
       }
 
-      setMessage("Password updated successfully. You can now log in.");
+      setStatus("success");
+      setMessage("Password updated successfully!");
       setPassword("");
+      setTimeout(() => {
+        router.push("/login");
+      }, 2000);
       setIsLoading(false);
     } catch (err) {
-      setError("reCAPTCHA verification failed. Please try again.");
+      setError("An error occurred. Please try again.");
       setIsLoading(false);
     }
   };
 
   return (
     <AppShell>
-      <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm shadow-slate-200/60">
-        <h2 className="mb-4 text-3xl font-semibold">Reset Password</h2>
-        {status === "invalid" ? (
-          <p className="text-sm text-rose-700">Token missing from the URL.</p>
-        ) : (
-          <form className="space-y-4" onSubmit={handleSubmit}>
-            <label className="block">
-              <span className="mb-2 block text-sm font-medium text-slate-700">
-                New password
-              </span>
-              <input
-                className="w-full rounded-2xl border border-slate-300 bg-slate-50 px-4 py-3 outline-none transition focus:border-slate-900"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                type="password"
-                required
-              />
-            </label>
-            <button
-              className="w-full rounded-2xl bg-slate-950 px-5 py-3 text-white transition hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
-              type="submit"
-              disabled={isLoading}
+      <div className="flex min-h-screen items-center justify-center px-4 py-12">
+        <div className="w-full max-w-md">
+          {status === "invalid" ? (
+            <AuthCard
+              title="Invalid Reset Link"
+              subtitle="The link has expired or is invalid"
             >
-              {isLoading ? "Resetting..." : "Reset password"}
-            </button>
-            {message ? (
-              <p className="mt-2 text-sm text-emerald-700">{message}</p>
-            ) : null}
-            {error ? (
-              <p className="mt-2 text-sm text-rose-700">{error}</p>
-            ) : null}
-          </form>
-        )}
+              <AuthAlert
+                type="error"
+                message="Please request a new password reset link."
+              />
+              <AuthButton
+                variant="secondary"
+                onClick={() => router.push("/request-password-reset")}
+                className="mt-4"
+              >
+                Request New Link
+              </AuthButton>
+            </AuthCard>
+          ) : status === "success" ? (
+            <AuthCard
+              title="Password Reset"
+              subtitle="Your password has been updated"
+            >
+              <AuthAlert
+                type="success"
+                message={message || "Password updated successfully!"}
+              />
+              <div className="mt-6 text-center">
+                <p className="text-sm text-slate-600">
+                  Redirecting to login...
+                </p>
+              </div>
+            </AuthCard>
+          ) : (
+            <AuthCard title="Reset Password" subtitle="Enter your new password">
+              {error && <AuthAlert type="error" message={error} />}
+
+              <form onSubmit={handleSubmit} className="space-y-5">
+                <AuthInput
+                  label="New Password"
+                  type="password"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
+
+                <p className="text-xs text-slate-500">
+                  Password must be at least 12 characters long with uppercase,
+                  lowercase, number, and special character.
+                </p>
+
+                <AuthButton type="submit" loading={isLoading} variant="primary">
+                  Reset Password
+                </AuthButton>
+              </form>
+
+              <div className="mt-6 border-t border-slate-200 pt-6">
+                <p className="text-center text-sm text-slate-600">
+                  <a
+                    href="/login"
+                    className="font-medium text-blue-600 hover:text-blue-700"
+                  >
+                    Back to login
+                  </a>
+                </p>
+              </div>
+            </AuthCard>
+          )}
+        </div>
       </div>
     </AppShell>
   );

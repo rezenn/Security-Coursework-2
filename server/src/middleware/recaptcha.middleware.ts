@@ -6,14 +6,19 @@ export const verifyRecaptcha = async (
   res: Response,
   next: NextFunction,
 ): Promise<void> => {
-  if (!config.recaptcha.enabled) {
-    return next();
-  }
-
+  // Skip reCAPTCHA verification in development if token is "test-token"
   const token =
     (req.body && req.body.captchaToken) ||
     req.headers["x-captcha-token"] ||
     req.headers["x-recaptcha-token"];
+
+  if (config.env === "development" && token === "test-token") {
+    return next();
+  }
+
+  if (!config.recaptcha.enabled) {
+    return next();
+  }
 
   if (!token || typeof token !== "string") {
     res.status(400).json({ error: "Captcha token is required" });
