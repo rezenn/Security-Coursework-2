@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import AppShell from "../components/AppShell";
+import { useRecaptcha } from "../hooks/useRecaptcha";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
@@ -11,31 +12,43 @@ export default function RegisterPage() {
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const { getToken } = useRecaptcha();
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
     setMessage(null);
+    setIsLoading(true);
 
-    const response = await fetch(`${API_URL}/api/auth/register`, {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, username, password }),
-    });
+    try {
+      const captchaToken = await getToken();
 
-    const data = await response.json();
-    if (!response.ok) {
-      setError(data.error || "Registration failed");
-      return;
+      const response = await fetch(`${API_URL}/api/auth/register`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, username, password, captchaToken }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        setError(data.error || "Registration failed");
+        setIsLoading(false);
+        return;
+      }
+
+      setMessage(
+        "Registration successful. Check your email for a verification code.",
+      );
+      setEmail("");
+      setUsername("");
+      setPassword("");
+      setIsLoading(false);
+    } catch (err) {
+      setError("reCAPTCHA verification failed. Please try again.");
+      setIsLoading(false);
     }
-
-    setMessage(
-      "Registration successful. Check your email for a verification link.",
-    );
-    setEmail("");
-    setUsername("");
-    setPassword("");
   };
 
   return (
@@ -80,10 +93,11 @@ export default function RegisterPage() {
             />
           </label>
           <button
-            className="w-full rounded-2xl bg-slate-950 px-5 py-3 text-white transition hover:bg-slate-800"
+            className="w-full rounded-2xl bg-slate-950 px-5 py-3 text-white transition hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
             type="submit"
+            disabled={isLoading}
           >
-            Create account
+            {isLoading ? "Creating account..." : "Create account"}
           </button>
           {message ? (
             <p className="mt-2 text-sm text-emerald-700">{message}</p>

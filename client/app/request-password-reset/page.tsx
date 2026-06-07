@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import AppShell from "../components/AppShell";
+import { useRecaptcha } from "../hooks/useRecaptcha";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
@@ -9,27 +10,42 @@ export default function RequestPasswordResetPage() {
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const { getToken } = useRecaptcha();
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
     setMessage(null);
+    setIsLoading(true);
 
-    const response = await fetch(`${API_URL}/api/auth/request-password-reset`, {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email }),
-    });
+    try {
+      const captchaToken = await getToken();
 
-    const data = await response.json();
-    if (!response.ok) {
-      setError(data.error || "Unable to send password reset link.");
-      return;
+      const response = await fetch(
+        `${API_URL}/api/auth/request-password-reset`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, captchaToken }),
+        },
+      );
+
+      const data = await response.json();
+      if (!response.ok) {
+        setError(data.error || "Unable to send password reset link.");
+        setIsLoading(false);
+        return;
+      }
+
+      setMessage("If your email exists, a password reset link has been sent.");
+      setEmail("");
+      setIsLoading(false);
+    } catch (err) {
+      setError("reCAPTCHA verification failed. Please try again.");
+      setIsLoading(false);
     }
-
-    setMessage("If your email exists, a password reset link has been sent.");
-    setEmail("");
   };
 
   return (
@@ -50,10 +66,11 @@ export default function RequestPasswordResetPage() {
             />
           </label>
           <button
-            className="w-full rounded-2xl bg-slate-950 px-5 py-3 text-white transition hover:bg-slate-800"
+            className="w-full rounded-2xl bg-slate-950 px-5 py-3 text-white transition hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
             type="submit"
+            disabled={isLoading}
           >
-            Send reset link
+            {isLoading ? "Sending..." : "Send reset link"}
           </button>
           {message ? (
             <p className="mt-2 text-sm text-emerald-700">{message}</p>

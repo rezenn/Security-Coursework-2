@@ -1,0 +1,54 @@
+{"level":"info","message":"MongoDB connected: ac-5dcg08g-shard-00-01.2uxtuyz.mongodb.net","timestamp":"2026-06-07 08:01:59"}
+{"level":"info","message":"MongoDB connected: ac-5dcg08g-shard-00-00.2uxtuyz.mongodb.net","timestamp":"2026-06-07 08:02:39"}
+{"level":"info","message":"Server listening on port 5000","timestamp":"2026-06-07 08:02:39"}
+{"level":"info","message":"::1 - - [07/Jun/2026:02:21:14 +0000] \"POST /api/auth/register HTTP/1.1\" 409 44 \"-\" \"PostmanRuntime/7.51.1\"","timestamp":"2026-06-07 08:06:14"}
+{"level":"info","message":"::1 - - [07/Jun/2026:02:21:19 +0000] \"POST /api/auth/register HTTP/1.1\" 409 44 \"-\" \"PostmanRuntime/7.51.1\"","timestamp":"2026-06-07 08:06:19"}
+{"level":"info","message":"Email sent to rhhc7@wshu.net: Verify your Gyankosh account","timestamp":"2026-06-07 08:07:09"}
+{"level":"info","message":"::1 - - [07/Jun/2026:02:22:09 +0000] \"POST /api/auth/register HTTP/1.1\" 201 83 \"-\" \"PostmanRuntime/7.51.1\"","timestamp":"2026-06-07 08:07:09"}
+{"level":"info","message":"::1 - - [07/Jun/2026:02:22:35 +0000] \"GET /api/auth/verify-email/737c7b07863f9399b7e94800965ec426b6d28ca10333013aedd274dbd81c4091 HTTP/1.1\" 200 42 \"-\" \"PostmanRuntime/7.51.1\"","timestamp":"2026-06-07 08:07:35"}
+{"level":"info","message":"Email sent to rhhc7@wshu.net: GyanKosh Security Alert: new login","timestamp":"2026-06-07 08:08:04"}
+{"level":"info","message":"::1 - - [07/Jun/2026:02:23:04 +0000] \"POST /api/auth/login HTTP/1.1\" 200 578 \"-\" \"PostmanRuntime/7.51.1\"","timestamp":"2026-06-07 08:08:04"}
+{"level":"info","message":"Email sent to 5mtps@wshu.net: Verify your Gyankosh account","timestamp":"2026-06-07 08:24:37"}
+{"level":"info","message":"::1 - - [07/Jun/2026:02:39:37 +0000] \"POST /api/auth/register HTTP/1.1\" 201 83 \"-\" \"PostmanRuntime/7.51.1\"","timestamp":"2026-06-07 08:24:37"}
+{"level":"info","message":"::1 - - [07/Jun/2026:02:41:46 +0000] \"GET /api/auth/verify-email/ HTTP/1.1\" 404 161 \"-\" \"PostmanRuntime/7.51.1\"","timestamp":"2026-06-07 08:26:46"}
+{"level":"info","message":"::1 - - [07/Jun/2026:02:41:57 +0000] \"GET /api/auth/verify-email HTTP/1.1\" 404 160 \"-\" \"PostmanRuntime/7.51.1\"","timestamp":"2026-06-07 08:26:57"}
+{"level":"info","message":"::1 - - [07/Jun/2026:02:43:10 +0000] \"GET /api/auth/verify-email HTTP/1.1\" 404 160 \"-\" \"PostmanRuntime/7.51.1\"","timestamp":"2026-06-07 08:28:10"}
+{"level":"info","message":"::1 - - [07/Jun/2026:02:43:12 +0000] \"GET /api/auth/verify-email HTTP/1.1\" 404 160 \"-\" \"PostmanRuntime/7.51.1\"","timestamp":"2026-06-07 08:28:12"}
+{"level":"info","message":"::1 - - [07/Jun/2026:02:43:13 +0000] \"GET /api/auth/verify-email HTTP/1.1\" 404 160 \"-\" \"PostmanRuntime/7.51.1\"","timestamp":"2026-06-07 08:28:13"}
+{"level":"info","message":"::1 - - [07/Jun/2026:02:44:04 +0000] \"GET /api/auth/verify-email HTTP/1.1\" 404 160 \"-\" \"PostmanRuntime/7.51.1\"","timestamp":"2026-06-07 08:29:04"}
+{"level":"info","message":"::1 - - [07/Jun/2026:02:44:06 +0000] \"GET /api/auth/verify-email HTTP/1.1\" 404 160 \"-\" \"PostmanRuntime/7.51.1\"","timestamp":"2026-06-07 08:29:06"}
+{"level":"info","message":"::1 - - [07/Jun/2026:02:44:34 +0000] \"GET /api/auth/verify-email/ba0c138df5be77a1d04f3ab6ffe52db9a6d9b59cb41361c84c4b795859eabfaa HTTP/1.1\" 200 42 \"-\" \"PostmanRuntime/7.51.1\"","timestamp":"2026-06-07 08:29:34"}
+{"level":"info","message":"Email sent to rhhc7@wshu.net: GyanKosh Security Alert: new login","timestamp":"2026-06-07 08:32:25"}
+{"level":"info","message":"::1 - - [07/Jun/2026:02:47:25 +0000] \"POST /api/auth/login HTTP/1.1\" 200 578 \"-\" \"PostmanRuntime/7.51.1\"","timestamp":"2026-06-07 08:32:25"}
+{"level":"info","message":"::1 - - [07/Jun/2026:02:47:39 +0000] \"POST /api/auth/mfa/setup HTTP/1.1\" 401 43 \"-\" \"PostmanRuntime/7.51.1\"","timestamp":"2026-06-07 08:32:39"}
+{"level":"info","message":"::1 - - [07/Jun/2026:02:47:57 +0000] \"POST /api/auth/refresh HTTP/1.1\" 200 423 \"-\" \"PostmanRuntime/7.51.1\"","timestamp":"2026-06-07 08:32:57"}
+{"level":"info","message":"::1 - - [07/Jun/2026:02:48:11 +0000] \"POST /api/auth/mfa/setup HTTP/1.1\" 200 3351 \"-\" \"PostmanRuntime/7.51.1\"","timestamp":"2026-06-07 08:33:11"}
+{"level":"info","message":"::1 - - [07/Jun/2026:02:48:31 +0000] \"POST /api/auth/mfa/confirm HTTP/1.1\" 400 29 \"-\" \"PostmanRuntime/7.51.1\"","timestamp":"2026-06-07 08:33:31"}
+{"level":"info","message":"Email sent to rhhc7@wshu.net: GyanKosh Security Alert: mfa enabled","timestamp":"2026-06-07 08:34:06"}
+{"level":"info","message":"::1 - - [07/Jun/2026:02:49:06 +0000] \"POST /api/auth/mfa/confirm HTTP/1.1\" 200 38 \"-\" \"PostmanRuntime/7.51.1\"","timestamp":"2026-06-07 08:34:06"}
+{"level":"info","message":"::1 - - [07/Jun/2026:02:49:23 +0000] \"GET /api/profile HTTP/1.1\" 200 240 \"-\" \"PostmanRuntime/7.51.1\"","timestamp":"2026-06-07 08:34:23"}
+{"level":"info","message":"::1 - - [07/Jun/2026:02:50:05 +0000] \"GET /api/profile HTTP/1.1\" 200 240 \"-\" \"PostmanRuntime/7.51.1\"","timestamp":"2026-06-07 08:35:05"}
+{"level":"info","message":"::1 - - [07/Jun/2026:02:50:08 +0000] \"GET /api/profile HTTP/1.1\" 200 240 \"-\" \"PostmanRuntime/7.51.1\"","timestamp":"2026-06-07 08:35:08"}
+{"level":"info","message":"::1 - - [07/Jun/2026:02:50:30 +0000] \"GET /api/profile HTTP/1.1\" 200 240 \"-\" \"PostmanRuntime/7.51.1\"","timestamp":"2026-06-07 08:35:30"}
+{"level":"info","message":"::1 - - [07/Jun/2026:02:50:48 +0000] \"PATCH /api/profile HTTP/1.1\" 401 43 \"-\" \"PostmanRuntime/7.51.1\"","timestamp":"2026-06-07 08:35:48"}
+{"level":"info","message":"::1 - - [07/Jun/2026:02:50:56 +0000] \"POST /api/auth/refresh HTTP/1.1\" 200 423 \"-\" \"PostmanRuntime/7.51.1\"","timestamp":"2026-06-07 08:35:56"}
+{"level":"info","message":"::1 - - [07/Jun/2026:02:51:15 +0000] \"PATCH /api/profile HTTP/1.1\" 200 238 \"-\" \"PostmanRuntime/7.51.1\"","timestamp":"2026-06-07 08:36:15"}
+{"level":"info","message":"::1 - - [07/Jun/2026:02:51:21 +0000] \"GET /api/profile HTTP/1.1\" 200 382 \"-\" \"PostmanRuntime/7.51.1\"","timestamp":"2026-06-07 08:36:21"}
+{"level":"info","message":"::1 - - [07/Jun/2026:02:51:40 +0000] \"POST /api/auth/request-password-reset HTTP/1.1\" 200 61 \"-\" \"PostmanRuntime/7.51.1\"","timestamp":"2026-06-07 08:36:40"}
+{"level":"info","message":"Email sent to rezen.khadgi@gmail.com: Reset your GyanKosh password","timestamp":"2026-06-07 08:37:04"}
+{"level":"info","message":"::1 - - [07/Jun/2026:02:52:04 +0000] \"POST /api/auth/request-password-reset HTTP/1.1\" 200 61 \"-\" \"PostmanRuntime/7.51.1\"","timestamp":"2026-06-07 08:37:04"}
+{"level":"info","message":"Email sent to rezen.khadgi@gmail.com: GyanKosh Security Alert: password changed","timestamp":"2026-06-07 08:39:00"}
+{"level":"info","message":"::1 - - [07/Jun/2026:02:54:00 +0000] \"POST /api/auth/reset-password HTTP/1.1\" 200 41 \"-\" \"PostmanRuntime/7.51.1\"","timestamp":"2026-06-07 08:39:00"}
+{"level":"info","message":"Email sent to rezen.khadgi@gmail.com: Reset your GyanKosh password","timestamp":"2026-06-07 08:39:13"}
+{"level":"info","message":"::1 - - [07/Jun/2026:02:54:13 +0000] \"POST /api/auth/request-password-reset HTTP/1.1\" 200 61 \"-\" \"PostmanRuntime/7.51.1\"","timestamp":"2026-06-07 08:39:13"}
+{"level":"info","message":"Email sent to rezen.khadgi@gmail.com: GyanKosh Security Alert: password changed","timestamp":"2026-06-07 08:39:34"}
+{"level":"info","message":"::1 - - [07/Jun/2026:02:54:34 +0000] \"POST /api/auth/reset-password HTTP/1.1\" 200 41 \"-\" \"PostmanRuntime/7.51.1\"","timestamp":"2026-06-07 08:39:34"}
+{"level":"info","message":"::1 - - [07/Jun/2026:02:54:57 +0000] \"POST /api/auth/login HTTP/1.1\" 401 33 \"-\" \"PostmanRuntime/7.51.1\"","timestamp":"2026-06-07 08:39:57"}
+{"level":"info","message":"::1 - - [07/Jun/2026:02:55:02 +0000] \"POST /api/auth/login HTTP/1.1\" 401 33 \"-\" \"PostmanRuntime/7.51.1\"","timestamp":"2026-06-07 08:40:02"}
+{"level":"info","message":"::1 - - [07/Jun/2026:02:55:08 +0000] \"POST /api/auth/login HTTP/1.1\" 401 33 \"-\" \"PostmanRuntime/7.51.1\"","timestamp":"2026-06-07 08:40:08"}
+{"level":"info","message":"::1 - - [07/Jun/2026:02:55:17 +0000] \"POST /api/auth/login HTTP/1.1\" 401 39 \"-\" \"PostmanRuntime/7.51.1\"","timestamp":"2026-06-07 08:40:17"}
+{"level":"info","message":"::1 - - [07/Jun/2026:02:55:47 +0000] \"POST /api/auth/login HTTP/1.1\" 429 78 \"-\" \"PostmanRuntime/7.51.1\"","timestamp":"2026-06-07 08:40:47"}
+{"level":"info","message":"::1 - - [07/Jun/2026:02:57:30 +0000] \"POST /api/auth/login HTTP/1.1\" 429 78 \"-\" \"PostmanRuntime/7.51.1\"","timestamp":"2026-06-07 08:42:30"}
+{"level":"info","message":"::1 - - [07/Jun/2026:02:58:48 +0000] \"POST /api/auth/login HTTP/1.1\" 429 78 \"-\" \"PostmanRuntime/7.51.1\"","timestamp":"2026-06-07 08:43:48"}
+{"level":"info","message":"::1 - - [07/Jun/2026:03:00:22 +0000] \"POST /api/auth/login HTTP/1.1\" 429 78 \"-\" \"PostmanRuntime/7.51.1\"","timestamp":"2026-06-07 08:45:22"}
+{"level":"info","message":"::1 - - [07/Jun/2026:03:00:25 +0000] \"POST /api/auth/login HTTP/1.1\" 429 78 \"-\" \"PostmanRuntime/7.51.1\"","timestamp":"2026-06-07 08:45:25"}

@@ -25,8 +25,8 @@ export interface IUser extends Document {
 
   mfa: {
     enabled: boolean;
-    secret: string | null; 
-    backupCodes: string[]; 
+    secret: string | null;
+    backupCodes: string[];
     setupPending: boolean;
   };
 
@@ -39,9 +39,13 @@ export interface IUser extends Document {
   lastLoginIp: string | null;
 
   emailVerificationToken: string | null;
+  emailVerificationCode: string | null;
   emailVerificationExpires: Date | null;
+  emailVerificationCodeExpires: Date | null;
   passwordResetToken: string | null;
+  passwordResetCode: string | null;
   passwordResetExpires: Date | null;
+  passwordResetCodeExpires: Date | null;
 
   activeRefreshTokens: {
     tokenHash: string;
@@ -66,8 +70,8 @@ export interface IUser extends Document {
   isLocked(): boolean;
   incrementFailedAttempts(): Promise<void>;
   resetFailedAttempts(): Promise<void>;
-  generatePasswordResetToken(): string;
-  generateEmailVerificationToken(): string;
+  generatePasswordResetToken(): { token: string; code: string };
+  generateEmailVerificationToken(): { token: string; code: string };
   isPasswordExpired(): boolean;
 }
 
@@ -98,7 +102,7 @@ const userSchema = new Schema<IUser>(
       type: String,
       required: [true, "Password is required"],
       minlength: [12, "Password must be at least 12 characters"],
-      select: false, 
+      select: false,
     },
     role: {
       type: String,
@@ -110,7 +114,7 @@ const userSchema = new Schema<IUser>(
 
     mfa: {
       enabled: { type: Boolean, default: false },
-      secret: { type: String, default: null, select: false }, 
+      secret: { type: String, default: null, select: false },
       backupCodes: { type: [String], default: [], select: false },
       setupPending: { type: Boolean, default: false },
     },
@@ -136,9 +140,13 @@ const userSchema = new Schema<IUser>(
     lastLoginIp: { type: String, default: null },
 
     emailVerificationToken: { type: String, default: null, select: false },
+    emailVerificationCode: { type: String, default: null, select: false },
     emailVerificationExpires: { type: Date, default: null },
+    emailVerificationCodeExpires: { type: Date, default: null },
     passwordResetToken: { type: String, default: null, select: false },
+    passwordResetCode: { type: String, default: null, select: false },
     passwordResetExpires: { type: Date, default: null },
+    passwordResetCodeExpires: { type: Date, default: null },
 
     activeRefreshTokens: {
       type: [
@@ -183,8 +191,16 @@ const userSchema = new Schema<IUser>(
           delete ret.emailVerificationToken;
         }
 
+        if (ret.emailVerificationCode) {
+          delete ret.emailVerificationCode;
+        }
+
         if (ret.passwordResetToken) {
           delete ret.passwordResetToken;
+        }
+
+        if (ret.passwordResetCode) {
+          delete ret.passwordResetCode;
         }
 
         if (ret.activeRefreshTokens) {
@@ -204,7 +220,7 @@ userSchema.index({ lockedUntil: 1 }, { expireAfterSeconds: 0, sparse: true });
 userSchema.pre("save", async function (next) {
   if (!this.isModified("password")) return next();
 
-  const SALT_ROUNDS = 12; 
+  const SALT_ROUNDS = 12;
   this.password = await bcrypt.hash(this.password, SALT_ROUNDS);
   this.passwordChangedAt = new Date();
   this.passwordExpiresAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
@@ -254,24 +270,44 @@ userSchema.methods.isPasswordExpired = function (): boolean {
   return this.passwordExpiresAt < new Date();
 };
 
-userSchema.methods.generatePasswordResetToken = function (): string {
-  const resetToken = crypto.randomBytes(32).toString("hex");
+userSchema.methods.generatePasswordResetToken = function (): {
+  token: string;
+  code: string;
+} {
+  const token = crypto.randomBytes(32).toString("hex");
+  const code = Math.floor(100000 + Math.random() * 900000).toString();
   this.passwordResetToken = crypto
     .createHash("sha256")
-    .update(resetToken)
+    .update(token)
+    .digest("hex");
+  this.passwordResetCode = crypto
+    .createHash("sha256")
+    .update(code)
     .digest("hex");
   this.passwordResetExpires = new Date(Date.now() + 15 * 60 * 1000); // 15 mins
-  return resetToken;
+  this.passwordResetCodeExpires = new Date(Date.now() + 15 * 60 * 1000); // 15 mins
+  return { token, code };
 };
 
-userSchema.methods.generateEmailVerificationToken = function (): string {
+userSchema.methods.generateEmailVerificationToken = function (): {
+  token: string;
+  code: string;
+} {
   const token = crypto.randomBytes(32).toString("hex");
+  const code = Math.floor(100000 + Math.random() * 900000).toString();
   this.emailVerificationToken = crypto
     .createHash("sha256")
     .update(token)
     .digest("hex");
+  this.emailVerificationCode = crypto
+    .createHash("sha256")
+    .update(code)
+    .digest("hex");
   this.emailVerificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24h
-  return token;
+  this.emailVerificationCodeExpires = new Date(
+    Date.now() + 24 * 60 * 60 * 1000,
+  ); // 24h
+  return { token, code };
 };
 
 const User: Model<IUser> = mongoose.model<IUser>("User", userSchema);

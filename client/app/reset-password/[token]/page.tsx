@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import AppShell from "../../components/AppShell";
+import { useRecaptcha } from "../../hooks/useRecaptcha";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
@@ -15,6 +16,8 @@ export default function ResetPasswordPage({
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState("ready");
+  const [isLoading, setIsLoading] = useState(false);
+  const { getToken } = useRecaptcha();
 
   useEffect(() => {
     if (!token) {
@@ -31,25 +34,35 @@ export default function ResetPasswordPage({
     }
     setError(null);
     setMessage(null);
+    setIsLoading(true);
 
-    const response = await fetch(
-      `${API_URL}/api/auth/reset-password/${token}`,
-      {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password }),
-      },
-    );
+    try {
+      const captchaToken = await getToken();
 
-    const data = await response.json();
-    if (!response.ok) {
-      setError(data.error || "Unable to reset password.");
-      return;
+      const response = await fetch(
+        `${API_URL}/api/auth/reset-password/${token}`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ password, captchaToken }),
+        },
+      );
+
+      const data = await response.json();
+      if (!response.ok) {
+        setError(data.error || "Unable to reset password.");
+        setIsLoading(false);
+        return;
+      }
+
+      setMessage("Password updated successfully. You can now log in.");
+      setPassword("");
+      setIsLoading(false);
+    } catch (err) {
+      setError("reCAPTCHA verification failed. Please try again.");
+      setIsLoading(false);
     }
-
-    setMessage("Password updated successfully. You can now log in.");
-    setPassword("");
   };
 
   return (
@@ -73,10 +86,11 @@ export default function ResetPasswordPage({
               />
             </label>
             <button
-              className="w-full rounded-2xl bg-slate-950 px-5 py-3 text-white transition hover:bg-slate-800"
+              className="w-full rounded-2xl bg-slate-950 px-5 py-3 text-white transition hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
               type="submit"
+              disabled={isLoading}
             >
-              Reset password
+              {isLoading ? "Resetting..." : "Reset password"}
             </button>
             {message ? (
               <p className="mt-2 text-sm text-emerald-700">{message}</p>

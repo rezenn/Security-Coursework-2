@@ -41,6 +41,18 @@ router.get(
 );
 
 router.post(
+  "/verify-email",
+  [
+    body("email").isEmail().withMessage("Valid email is required"),
+    body("code")
+      .isLength({ min: 6, max: 6 })
+      .withMessage("Verification code must be 6 digits"),
+  ],
+  validateRequest,
+  verifyEmail,
+);
+
+router.post(
   "/login",
   [
     body("email").isEmail().withMessage("Valid email is required"),
@@ -71,6 +83,23 @@ router.post(
       .withMessage("Password must be at least 12 characters"),
   ],
   validateRequest,
+  verifyRecaptcha,
+  resetPassword,
+);
+
+router.post(
+  "/reset-password",
+  [
+    body("email").isEmail().withMessage("Valid email is required"),
+    body("code")
+      .isLength({ min: 6, max: 6 })
+      .withMessage("Reset code must be 6 digits"),
+    body("password")
+      .isLength({ min: 12 })
+      .withMessage("Password must be at least 12 characters"),
+  ],
+  validateRequest,
+  verifyRecaptcha,
   resetPassword,
 );
 

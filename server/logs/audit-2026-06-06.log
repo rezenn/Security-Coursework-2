@@ -43,3 +43,7 @@
 {"level":"info","message":{"email":"jakew93543@dosbee.com","event":"login_success","ip":"::1","role":"user","timestamp":"2026-06-06T09:07:30.450Z","userId":"6a23e2ea4241ecf1d59c8762"},"timestamp":"2026-06-06 14:52:30"}
 {"level":"info","message":{"email":"jakew93543@dosbee.com","event":"login_success","ip":"::1","role":"user","timestamp":"2026-06-06T09:07:31.759Z","userId":"6a23e2ea4241ecf1d59c8762"},"timestamp":"2026-06-06 14:52:31"}
 {"level":"info","message":{"email":"jakew93543@dosbee.com","event":"login_success","ip":"::1","role":"user","timestamp":"2026-06-06T09:07:33.115Z","userId":"6a23e2ea4241ecf1d59c8762"},"timestamp":"2026-06-06 14:52:33"}
+{"level":"info","message":{"env":"development","event":"server_started","ip":"system","port":5000,"timestamp":"2026-06-06T09:10:34.131Z","userId":"anonymous"},"timestamp":"2026-06-06 14:55:34"}
+{"level":"info","message":{"env":"development","event":"server_started","ip":"system","port":5000,"timestamp":"2026-06-06T09:20:21.691Z","userId":"anonymous"},"timestamp":"2026-06-06 15:05:21"}
+{"level":"info","message":{"env":"development","event":"server_started","ip":"system","port":5000,"timestamp":"2026-06-06T09:20:28.165Z","userId":"anonymous"},"timestamp":"2026-06-06 15:05:28"}
+{"level":"info","message":{"env":"development","event":"server_started","ip":"system","port":5000,"timestamp":"2026-06-06T09:33:12.269Z","userId":"anonymous"},"timestamp":"2026-06-06 15:18:12"}

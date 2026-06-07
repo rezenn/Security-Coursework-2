@@ -100,13 +100,18 @@ export const register = async (req: Request, res: Response): Promise<void> => {
   }
 
   const user = new User({ email, username, password });
-  const verificationToken = user.generateEmailVerificationToken();
+  const verification = user.generateEmailVerificationToken();
   await user.save();
 
   user.passwordHistory.push({ hash: user.password, changedAt: new Date() });
   await user.save({ validateBeforeSave: false });
 
-  await sendVerificationEmail(email, username, verificationToken);
+  await sendVerificationEmail(
+    email,
+    username,
+    verification.token,
+    verification.code,
+  );
   logSecurityEvent("user_registered", user._id.toHexString(), getSafeIp(req), {
     email,
     username,
@@ -123,22 +128,39 @@ export const verifyEmail = async (
   res: Response,
 ): Promise<void> => {
   const { token } = req.params;
-  const hashed = hashToken(token);
-  const user = await User.findOne({
-    emailVerificationToken: hashed,
-    emailVerificationExpires: { $gt: new Date() },
-  });
+  const { email, code } = req.body;
+
+  let user;
+  if (token) {
+    const hashed = hashToken(token);
+    user = await User.findOne({
+      emailVerificationToken: hashed,
+      emailVerificationExpires: { $gt: new Date() },
+    });
+  } else if (email && code) {
+    const hashedCode = hashToken(code);
+    user = await User.findOne({
+      email,
+      emailVerificationCode: hashedCode,
+      emailVerificationCodeExpires: { $gt: new Date() },
+    });
+  } else {
+    res.status(400).json({ error: "Verification token or code is required" });
+    return;
+  }
 
   if (!user) {
     res
       .status(400)
-      .json({ error: "Invalid or expired email verification token" });
+      .json({ error: "Invalid or expired email verification token or code" });
     return;
   }
 
   user.isEmailVerified = true;
   user.emailVerificationToken = null;
   user.emailVerificationExpires = null;
+  user.emailVerificationCode = null;
+  user.emailVerificationCodeExpires = null;
   await user.save({ validateBeforeSave: false });
 
   logSecurityEvent("email_verified", user._id.toHexString(), getSafeIp(req), {
@@ -329,9 +351,14 @@ export const requestPasswordReset = async (
     return;
   }
 
-  const resetToken = user.generatePasswordResetToken();
+  const reset = user.generatePasswordResetToken();
   await user.save({ validateBeforeSave: false });
-  await sendPasswordResetEmail(user.email, user.username, resetToken);
+  await sendPasswordResetEmail(
+    user.email,
+    user.username,
+    reset.token,
+    reset.code,
+  );
 
   logSecurityEvent(
     "password_reset_requested",
@@ -352,15 +379,33 @@ export const resetPassword = async (
   res: Response,
 ): Promise<void> => {
   const { token } = req.params;
-  const { password } = req.body;
-  const hashedToken = hashToken(token);
-  const user = await User.findOne({
-    passwordResetToken: hashedToken,
-    passwordResetExpires: { $gt: new Date() },
-  }).select("+password +passwordHistory");
+  const { email, code, password } = req.body;
+
+  let user;
+  if (token) {
+    const hashedToken = hashToken(token);
+    user = await User.findOne({
+      passwordResetToken: hashedToken,
+      passwordResetExpires: { $gt: new Date() },
+    }).select("+password +passwordHistory");
+  } else if (email && code) {
+    const hashedCode = hashToken(code);
+    user = await User.findOne({
+      email,
+      passwordResetCode: hashedCode,
+      passwordResetCodeExpires: { $gt: new Date() },
+    }).select("+password +passwordHistory");
+  } else {
+    res
+      .status(400)
+      .json({ error: "Password reset token or email/code is required" });
+    return;
+  }
 
   if (!user) {
-    res.status(400).json({ error: "Invalid or expired password reset token" });
+    res
+      .status(400)
+      .json({ error: "Invalid or expired password reset token or code" });
     return;
   }
 
@@ -384,6 +429,8 @@ export const resetPassword = async (
   user.password = password;
   user.passwordResetToken = null;
   user.passwordResetExpires = null;
+  user.passwordResetCode = null;
+  user.passwordResetCodeExpires = null;
   await user.save();
 
   await sendSecurityAlertEmail(user.email, user.username, "password_changed", {

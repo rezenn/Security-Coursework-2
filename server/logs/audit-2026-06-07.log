@@ -1,0 +1,13 @@
+{"level":"info","message":{"env":"development","event":"server_started","ip":"system","port":5000,"timestamp":"2026-06-07T02:17:39.818Z","userId":"anonymous"},"timestamp":"2026-06-07 08:02:39"}
+{"level":"info","message":{"email":"rhhc7@wshu.net","event":"user_registered","ip":"::1","timestamp":"2026-06-07T02:22:09.689Z","userId":"6a24d5c71874e692d2bf7348","username":"Jwefgdien"},"timestamp":"2026-06-07 08:07:09"}
+{"level":"info","message":{"email":"rhhc7@wshu.net","event":"email_verified","ip":"::1","timestamp":"2026-06-07T02:22:35.923Z","userId":"6a24d5c71874e692d2bf7348"},"timestamp":"2026-06-07 08:07:35"}
+{"level":"info","message":{"email":"rhhc7@wshu.net","event":"login_success","ip":"::1","role":"user","timestamp":"2026-06-07T02:23:04.209Z","userId":"6a24d5c71874e692d2bf7348"},"timestamp":"2026-06-07 08:08:04"}
+{"level":"info","message":{"email":"5mtps@wshu.net","event":"user_registered","ip":"::1","timestamp":"2026-06-07T02:39:37.609Z","userId":"6a24d9e31874e692d2bf7354","username":"Jwefgdsdien"},"timestamp":"2026-06-07 08:24:37"}
+{"level":"info","message":{"email":"5mtps@wshu.net","event":"email_verified","ip":"::1","timestamp":"2026-06-07T02:44:34.662Z","userId":"6a24d9e31874e692d2bf7354"},"timestamp":"2026-06-07 08:29:34"}
+{"level":"info","message":{"email":"rhhc7@wshu.net","event":"login_success","ip":"::1","role":"user","timestamp":"2026-06-07T02:47:25.686Z","userId":"6a24d5c71874e692d2bf7348"},"timestamp":"2026-06-07 08:32:25"}
+{"level":"info","message":{"email":"rhhc7@wshu.net","event":"mfa_enabled","ip":"::1","timestamp":"2026-06-07T02:49:01.814Z","userId":"6a24d5c71874e692d2bf7348"},"timestamp":"2026-06-07 08:34:01"}
+{"level":"info","message":{"event":"profile_updated","ip":"::1","timestamp":"2026-06-07T02:51:15.656Z","updatedFields":["firstName","lastName","bio","avatarUrl"],"userId":"6a24d5c71874e692d2bf7348"},"timestamp":"2026-06-07 08:36:15"}
+{"level":"info","message":{"email":"rezen.khadgi@gmail.com","event":"password_reset_requested","ip":"::1","timestamp":"2026-06-07T02:52:04.365Z","userId":"6a231fca00cac77e01681de7"},"timestamp":"2026-06-07 08:37:04"}
+{"level":"info","message":{"email":"rezen.khadgi@gmail.com","event":"password_reset","ip":"::1","timestamp":"2026-06-07T02:54:00.237Z","userId":"6a231fca00cac77e01681de7"},"timestamp":"2026-06-07 08:39:00"}
+{"level":"info","message":{"email":"rezen.khadgi@gmail.com","event":"password_reset_requested","ip":"::1","timestamp":"2026-06-07T02:54:13.830Z","userId":"6a231fca00cac77e01681de7"},"timestamp":"2026-06-07 08:39:13"}
+{"level":"info","message":{"email":"rezen.khadgi@gmail.com","event":"password_reset","ip":"::1","timestamp":"2026-06-07T02:54:34.371Z","userId":"6a231fca00cac77e01681de7"},"timestamp":"2026-06-07 08:39:34"}

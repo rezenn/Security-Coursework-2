@@ -104,3 +104,16 @@
 {"level":"info","message":"::1 - - [06/Jun/2026:09:07:34 +0000] \"GET /api/profile HTTP/1.1\" 401 44 \"http://localhost:3000/\" \"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36\"","timestamp":"2026-06-06 14:52:34"}
 {"level":"info","message":"::1 - - [06/Jun/2026:09:07:34 +0000] \"GET /api/profile HTTP/1.1\" 401 44 \"http://localhost:3000/\" \"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36\"","timestamp":"2026-06-06 14:52:34"}
 {"level":"info","message":"::1 - - [06/Jun/2026:09:09:44 +0000] \"POST /api/auth/login HTTP/1.1\" 401 33 \"-\" \"PostmanRuntime/7.51.1\"","timestamp":"2026-06-06 14:54:44"}
+{"level":"info","message":"MongoDB connected: ac-5dcg08g-shard-00-02.2uxtuyz.mongodb.net","timestamp":"2026-06-06 14:55:34"}
+{"level":"info","message":"Server listening on port 5000","timestamp":"2026-06-06 14:55:34"}
+{"level":"info","message":"::1 - - [06/Jun/2026:09:13:09 +0000] \"POST /api/auth/login HTTP/1.1\" 401 33 \"-\" \"PostmanRuntime/7.51.1\"","timestamp":"2026-06-06 14:58:09"}
+{"level":"info","message":"MongoDB connected: ac-5dcg08g-shard-00-02.2uxtuyz.mongodb.net","timestamp":"2026-06-06 15:05:21"}
+{"level":"info","message":"Server listening on port 5000","timestamp":"2026-06-06 15:05:21"}
+{"level":"info","message":"MongoDB connected: ac-5dcg08g-shard-00-02.2uxtuyz.mongodb.net","timestamp":"2026-06-06 15:05:28"}
+{"level":"info","message":"Server listening on port 5000","timestamp":"2026-06-06 15:05:28"}
+{"level":"info","message":"MongoDB connected: ac-5dcg08g-shard-00-01.2uxtuyz.mongodb.net","timestamp":"2026-06-06 15:18:12"}
+{"level":"info","message":"Server listening on port 5000","timestamp":"2026-06-06 15:18:12"}
+{"level":"info","message":"MongoDB reconnected","timestamp":"2026-06-06 17:55:24"}
+{"level":"info","message":"MongoDB reconnected","timestamp":"2026-06-06 17:55:24"}
+{"level":"warn","message":"MongoDB disconnected. Attempting to reconnect...","timestamp":"2026-06-06 18:53:17"}
+{"level":"info","message":"MongoDB reconnected","timestamp":"2026-06-06 18:53:17"}

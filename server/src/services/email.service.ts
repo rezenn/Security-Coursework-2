@@ -53,13 +53,15 @@ export const sendVerificationEmail = async (
   to: string,
   username: string,
   token: string,
+  code: string,
 ): Promise<void> => {
-  const verifyUrl = `${config.frontendUrl}/verify-email?token=${token}`;
+  const verifyUrl = `${config.frontendUrl}/verify?token=${token}`;
 
   const content = `
     <h3>Welcome, ${username}!</h3>
     <p>Please verify your email address to activate your account.</p>
-    <p>This link expires in <strong>24 hours</strong>.</p>
+    <p>Your verification code is <strong>${code}</strong>.</p>
+    <p>This code expires in <strong>24 hours</strong>.</p>
     <a href="${verifyUrl}" class="button">Verify Email Address</a>
     <div class="warning">
       ⚠️ If you did not create an account, please ignore this email. No action is required.
@@ -78,18 +80,20 @@ export const sendPasswordResetEmail = async (
   to: string,
   username: string,
   token: string,
+  code: string,
 ): Promise<void> => {
-  const resetUrl = `${config.frontendUrl}/reset-password?token=${token}`;
+  const resetUrl = `${config.frontendUrl}/reset-password/${token}`;
 
   const content = `
     <h3>Password Reset Request</h3>
     <p>Hi ${username}, we received a request to reset your password.</p>
-    <p>This link expires in <strong>15 minutes</strong>.</p>
+    <p>Your reset code is <strong>${code}</strong>. This code expires in <strong>15 minutes</strong>.</p>
     <a href="${resetUrl}" class="button">Reset Password</a>
     <div class="warning">
       ⚠️ If you didn't request a password reset, your account may be at risk.
       Please <a href="${config.frontendUrl}/login">login</a> and change your password immediately.
     </div>
+    <p>Or copy this link: <code>${resetUrl}</code></p>
   `;
 
   await sendEmail(

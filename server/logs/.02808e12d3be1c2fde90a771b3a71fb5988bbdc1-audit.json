@@ -14,6 +14,11 @@
             "date": 1780686722972,
             "name": "E:\\semester 6\\Security\\CW2\\server\\logs\\audit-2026-06-06.log",
             "hash": "606da54a071024883214aee180496801592aa75f430fad021472a43cf256ace5"
+        },
+        {
+            "date": 1780798614949,
+            "name": "E:\\semester 6\\Security\\CW2\\server\\logs\\audit-2026-06-07.log",
+            "hash": "30d923c6354e68552532a7e39fbefc9428a78edc0de875255868338ec884a646"
         }
     ],
     "hashType": "sha256"
