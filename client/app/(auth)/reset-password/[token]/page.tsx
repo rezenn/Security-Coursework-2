@@ -1,41 +1,36 @@
 "use client";
 import { useState } from "react";
 // import { authApi } from "@/lib/api";
-import { useRouter } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 
-export default function RegisterPage() {
+export default function ResetPasswordPage() {
+  const { token } = useParams<{ token: string }>();
   const router = useRouter();
-  const [form, setForm] = useState({
-    email: "",
-    username: "",
-    password: "",
-    confirm: "",
-  });
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   // const handleSubmit = async () => {
-  //   setError("");
-  //   if (form.password !== form.confirm) {
+  //   if (password !== confirm) {
   //     setError("Passwords do not match");
   //     return;
   //   }
-  //   if (form.password.length < 12) {
+  //   if (password.length < 12) {
   //     setError("Password must be at least 12 characters");
   //     return;
   //   }
+  //   setError("");
   //   setLoading(true);
   //   try {
-  //     const res = await authApi.register({
-  //       email: form.email,
-  //       username: form.username,
-  //       password: form.password,
+  //     const res = await authApi.resetPassword(token, {
+  //       password,
   //       captchaToken: "test-token",
   //     });
   //     const data = await res.json();
-  //     if (!res.ok) throw new Error(data.error || "Registration failed");
-  //     router.push(`/verify-email?email=${encodeURIComponent(form.email)}`);
+  //     if (!res.ok) throw new Error(data.error || "Reset failed");
+  //     router.push("/login?reset=1");
   //   } catch (e: any) {
   //     setError(e.message);
   //   } finally {
@@ -44,10 +39,10 @@ export default function RegisterPage() {
   // };
 
   const requirements = [
-    { text: "12+ characters", met: form.password.length >= 12 },
-    { text: "Uppercase letter", met: /[A-Z]/.test(form.password) },
-    { text: "Number", met: /[0-9]/.test(form.password) },
-    { text: "Special character", met: /[^a-zA-Z0-9]/.test(form.password) },
+    { text: "12+ characters", met: password.length >= 12 },
+    { text: "Uppercase letter", met: /[A-Z]/.test(password) },
+    { text: "Number", met: /[0-9]/.test(password) },
+    { text: "Special character", met: /[^a-zA-Z0-9]/.test(password) },
   ];
 
   return (
@@ -90,7 +85,7 @@ export default function RegisterPage() {
             style={{ color: "var(--vw-text)" }}
             className="text-2xl font-semibold"
           >
-            Create account
+            Set new password
           </h1>
         </div>
 
@@ -109,32 +104,10 @@ export default function RegisterPage() {
 
         <div className="space-y-4">
           {[
-            {
-              label: "Email",
-              key: "email",
-              type: "email",
-              placeholder: "you@example.com",
-            },
-            {
-              label: "Username",
-              key: "username",
-              type: "text",
-              placeholder: "johndoe",
-            },
-            {
-              label: "Password",
-              key: "password",
-              type: "password",
-              placeholder: "••••••••••••",
-            },
-            {
-              label: "Confirm password",
-              key: "confirm",
-              type: "password",
-              placeholder: "••••••••••••",
-            },
+            { label: "New password", value: password, onChange: setPassword },
+            { label: "Confirm password", value: confirm, onChange: setConfirm },
           ].map((f) => (
-            <div key={f.key}>
+            <div key={f.label}>
               <label
                 style={{ color: "var(--vw-muted)" }}
                 className="block text-xs font-medium mb-1.5 uppercase tracking-wider"
@@ -142,12 +115,10 @@ export default function RegisterPage() {
                 {f.label}
               </label>
               <input
-                type={f.type}
-                value={(form as any)[f.key]}
-                onChange={(e) =>
-                  setForm((prev) => ({ ...prev, [f.key]: e.target.value }))
-                }
-                placeholder={f.placeholder}
+                type="password"
+                value={f.value}
+                onChange={(e) => f.onChange(e.target.value)}
+                placeholder="••••••••••••"
                 style={{
                   background: "var(--vw-input-bg)",
                   border: "1px solid var(--vw-border)",
@@ -159,7 +130,7 @@ export default function RegisterPage() {
           ))}
         </div>
 
-        {form.password && (
+        {password && (
           <div className="mt-3 grid grid-cols-2 gap-1.5">
             {requirements.map((r) => (
               <div
@@ -180,22 +151,18 @@ export default function RegisterPage() {
           // onClick={handleSubmit}
           disabled={loading}
           style={{ background: "var(--vw-accent)" }}
-          className="mt-6 w-full py-2.5 rounded-lg text-white font-medium text-sm transition-all hover:opacity-90 disabled:opacity-50"
+          className="mt-6 w-full py-2.5 rounded-lg text-white font-medium text-sm hover:opacity-90 disabled:opacity-50 transition-all"
         >
-          {loading ? "Creating account..." : "Create account"}
+          {loading ? "Saving..." : "Save new password"}
         </button>
 
-        <p
-          style={{ color: "var(--vw-muted)" }}
-          className="mt-5 text-center text-sm"
-        >
-          Already have an account?{" "}
+        <p className="mt-5 text-center text-sm">
           <Link
             href="/login"
             style={{ color: "var(--vw-accent)" }}
-            className="hover:underline font-medium"
+            className="hover:underline"
           >
-            Sign in
+            Back to sign in
           </Link>
         </p>
       </div>

@@ -1,0 +1,247 @@
+"use client";
+import { useState } from "react";
+// import { authApi } from "@/lib/api";
+import { useRouter } from "next/navigation";
+
+export default function MfaSetupPage() {
+  const router = useRouter();
+  const [step, setStep] = useState<"idle" | "scan" | "done">("idle");
+  const [qrCode, setQrCode] = useState("");
+  const [backupCodes, setBackupCodes] = useState<string[]>([]);
+  const [token, setToken] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  //   const startSetup = async () => {
+  //     setLoading(true);
+  //     try {
+  //       const res = await authApi.setupMfa();
+  //       const data = await res.json();
+  //       if (!res.ok) throw new Error(data.error);
+  //       setQrCode(data.qrCode);
+  //       setStep("scan");
+  //     } catch (e: any) {
+  //       setError(e.message);
+  //     } finally {
+  //       setLoading(false);
+  //     }
+  //   };
+
+  //   const confirmSetup = async () => {
+  //     setLoading(true);
+  //     setError("");
+  //     try {
+  //       const res = await authApi.confirmMfa(token);
+  //       const data = await res.json();
+  //       if (!res.ok) throw new Error(data.error);
+  //       setBackupCodes(data.backupCodes || []);
+  //       setStep("done");
+  //     } catch (e: any) {
+  //       setError(e.message);
+  //     } finally {
+  //       setLoading(false);
+  //     }
+  //   };
+
+  return (
+    <div className="w-full max-w-md px-4">
+      <div
+        style={{
+          background: "var(--vw-card)",
+          border: "1px solid var(--vw-border)",
+        }}
+        className="rounded-2xl p-8 shadow-2xl"
+      >
+        {step === "idle" && (
+          <>
+            <div className="flex items-center gap-2 mb-8">
+              <div
+                style={{ background: "var(--vw-accent)" }}
+                className="w-7 h-7 rounded-lg flex items-center justify-center"
+              >
+                <svg
+                  className="w-4 h-4 text-white"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                  />
+                </svg>
+              </div>
+              <span
+                style={{ color: "var(--vw-text)" }}
+                className="font-semibold text-sm tracking-wide"
+              >
+                VaultWork
+              </span>
+            </div>
+            <h1
+              style={{ color: "var(--vw-text)" }}
+              className="text-2xl font-semibold mb-2"
+            >
+              Two-factor authentication
+            </h1>
+            <p style={{ color: "var(--vw-muted)" }} className="text-sm mb-6">
+              Add an extra layer of security using an authenticator app.
+            </p>
+            {error && (
+              <div
+                style={{
+                  background: "var(--vw-error-bg)",
+                  border: "1px solid var(--vw-error-border)",
+                  color: "var(--vw-error-text)",
+                }}
+                className="mb-5 p-3 rounded-lg text-sm"
+              >
+                {error}
+              </div>
+            )}
+            <button
+              //   onClick={startSetup}
+              disabled={loading}
+              style={{ background: "var(--vw-accent)" }}
+              className="w-full py-2.5 rounded-lg text-white font-medium text-sm hover:opacity-90 disabled:opacity-50 transition-all"
+            >
+              {loading ? "Setting up..." : "Set up authenticator"}
+            </button>
+          </>
+        )}
+
+        {step === "scan" && (
+          <>
+            <h1
+              style={{ color: "var(--vw-text)" }}
+              className="text-xl font-semibold mb-2"
+            >
+              Scan QR code
+            </h1>
+            <p style={{ color: "var(--vw-muted)" }} className="text-sm mb-5">
+              Open your authenticator app and scan this code.
+            </p>
+            {qrCode && (
+              <div
+                style={{
+                  background: "var(--vw-input-bg)",
+                  border: "1px solid var(--vw-border)",
+                }}
+                className="rounded-xl p-4 flex items-center justify-center mb-5"
+              >
+                <img
+                  src={qrCode}
+                  alt="MFA QR Code"
+                  className="rounded-lg w-40 h-40"
+                />
+              </div>
+            )}
+            {error && (
+              <div
+                style={{
+                  background: "var(--vw-error-bg)",
+                  border: "1px solid var(--vw-error-border)",
+                  color: "var(--vw-error-text)",
+                }}
+                className="mb-4 p-3 rounded-lg text-sm"
+              >
+                {error}
+              </div>
+            )}
+            <label
+              style={{ color: "var(--vw-muted)" }}
+              className="block text-xs font-medium mb-1.5 uppercase tracking-wider"
+            >
+              Confirmation code
+            </label>
+            <input
+              type="text"
+              maxLength={6}
+              value={token}
+              onChange={(e) => setToken(e.target.value)}
+              placeholder="000000"
+              style={{
+                background: "var(--vw-input-bg)",
+                border: "1px solid var(--vw-border)",
+                color: "var(--vw-text)",
+              }}
+              className="w-full px-3.5 py-2.5 rounded-lg text-center text-xl font-semibold tracking-[0.5em] focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all placeholder:tracking-normal placeholder:text-gray-600 mb-5"
+            />
+            <button
+              //   onClick={confirmSetup}
+              disabled={loading}
+              style={{ background: "var(--vw-accent)" }}
+              className="w-full py-2.5 rounded-lg text-white font-medium text-sm hover:opacity-90 disabled:opacity-50 transition-all"
+            >
+              {loading ? "Verifying..." : "Activate 2FA"}
+            </button>
+          </>
+        )}
+
+        {step === "done" && (
+          <>
+            <div className="text-center mb-6">
+              <div
+                style={{
+                  background: "var(--vw-success-bg)",
+                  border: "1px solid var(--vw-success-border)",
+                }}
+                className="w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-4"
+              >
+                <svg
+                  className="w-5 h-5"
+                  style={{ color: "var(--vw-success-text)" }}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M5 13l4 4L19 7"
+                  />
+                </svg>
+              </div>
+              <h1
+                style={{ color: "var(--vw-text)" }}
+                className="text-xl font-semibold"
+              >
+                2FA enabled
+              </h1>
+            </div>
+            <p style={{ color: "var(--vw-muted)" }} className="text-sm mb-3">
+              Save these backup codes — each can only be used once.
+            </p>
+            <div
+              style={{
+                background: "var(--vw-input-bg)",
+                border: "1px solid var(--vw-border)",
+              }}
+              className="rounded-lg p-4 grid grid-cols-2 gap-2 mb-5"
+            >
+              {backupCodes.map((c, i) => (
+                <code
+                  key={i}
+                  style={{ color: "var(--vw-text)" }}
+                  className="text-xs font-mono"
+                >
+                  {c}
+                </code>
+              ))}
+            </div>
+            <button
+              onClick={() => router.push("/profile")}
+              style={{ background: "var(--vw-accent)" }}
+              className="w-full py-2.5 rounded-lg text-white font-medium text-sm hover:opacity-90 transition-all"
+            >
+              Done
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}

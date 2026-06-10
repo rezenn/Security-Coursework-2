@@ -123,6 +123,19 @@ body {
   --sidebar-accent-foreground: oklch(0.21 0.006 285.885);
   --sidebar-border: oklch(0.92 0.004 286.32);
   --sidebar-ring: oklch(0.705 0.015 286.067);
+  --vw-accent: #6c63ff;
+  --vw-accent-hover: #574fd6;
+  --vw-card: #1e1e30;
+  --vw-border: #2e2e45;
+  --vw-text: #e8e8f0;
+  --vw-muted: #8888aa;
+  --vw-input-bg: #14141f;
+  --vw-error-bg: #2d1a1a;
+  --vw-error-border: #5c2626;
+  --vw-error-text: #f87171;
+  --vw-success-bg: #1a2d1f;
+  --vw-success-border: #1e5c2e;
+  --vw-success-text: #4ade80;
 }
 
 .dark {
