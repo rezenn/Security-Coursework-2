@@ -22,3 +22,5 @@
 {"level":"info","message":{"email":"32hou@wshu.net","event":"mfa_enabled","ip":"::1","timestamp":"2026-06-07T06:51:59.527Z","userId":"6a25147a05a2ca0287bf0a7d"},"timestamp":"2026-06-07 12:36:59"}
 {"level":"info","message":{"event":"logout","ip":"::1","timestamp":"2026-06-07T06:52:15.226Z","userAgent":"PostmanRuntime/7.51.1","userId":"6a25147a05a2ca0287bf0a7d"},"timestamp":"2026-06-07 12:37:15"}
 {"level":"info","message":{"env":"development","event":"server_started","ip":"system","port":5000,"timestamp":"2026-06-07T06:53:53.431Z","userId":"anonymous"},"timestamp":"2026-06-07 12:38:53"}
+{"level":"info","message":{"env":"development","event":"server_started","ip":"system","port":5000,"timestamp":"2026-06-07T06:55:38.426Z","userId":"anonymous"},"timestamp":"2026-06-07 12:40:38"}
+{"level":"info","message":{"env":"development","event":"server_started","ip":"system","port":5000,"timestamp":"2026-06-07T10:36:11.898Z","userId":"anonymous"},"timestamp":"2026-06-07 16:21:11"}

@@ -1,36 +1,67 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# QuickPalo -- Appointment Booking & Queue Management System
 
-## Getting Started
+QuickPalo is a full-stack web application designed to modernize
+traditional appointment scheduling and queuing systems. It enables users
+to book appointments remotely, complete secure payments, and verify
+bookings via QR-based check-in. Service providers can manage slots,
+monitor queues, and optimize workflow efficiency.
 
-First, run the development server:
+------------------------------------------------------------------------
 
-```bash
+## Architecture Overview
+
+-   **Frontend:** Next.js (React-based with Server-Side Rendering)
+-   **Backend:** Node.js + Express (RESTful API)
+-   **Database:** MongoDB with Mongoose
+-   **Language:** TypeScript
+-   **Authentication:** JWT-based authentication
+-   **Architecture Pattern:** Layered Architecture
+
+------------------------------------------------------------------------
+
+# Frontend -- Next.js Application
+
+## Overview
+
+The frontend is built using Next.js with App Router architecture. It
+supports Server-Side Rendering (SSR), file-based routing, and
+server/client component separation.
+
+## Key Features
+
+-   Server-Side Rendering (SSR)
+-   File-based routing
+-   Server Actions
+-   Middleware-based authentication
+-   Component separation (Server & Client Components)
+-   Dynamic appointment booking UI
+-   QR-based booking confirmation
+
+## Folder Structure
+
+    frontend/
+    │
+    ├── app/
+    │   ├── (auth)/
+    │   ├── admin/ 
+    │   ├── organization/
+    │   ├── user/    
+    │   ├── dashboard/
+    │   ├── appointments/
+    │   └── api/
+    │
+    ├── components/
+    ├── lib/
+    ├── proxy.ts
+    ├── services/
+    └── types/
+
+## Run Frontend
+
+``` bash
+cd client
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+App runs at: http://localhost:3000
