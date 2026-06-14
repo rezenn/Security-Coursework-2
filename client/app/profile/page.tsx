@@ -56,7 +56,7 @@ export default function ProfilePage() {
           <dl className="mt-4 space-y-3">
             <Row label="Username" value={user.username} />
             <Row label="Email" value={user.email} />
-            <Row
+            {/* <Row
               label="Email verified"
               value={
                 user.emailVerified ? (
@@ -70,7 +70,7 @@ export default function ProfilePage() {
                   </span>
                 )
               }
-            />
+            /> */}
             {user.createdAt && (
               <Row
                 label="Member since"
@@ -125,13 +125,7 @@ export default function ProfilePage() {
   );
 }
 
-function Row({
-  label,
-  value,
-}: {
-  label: string;
-  value: React.ReactNode;
-}) {
+function Row({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="flex items-baseline justify-between border-b border-gray-100 pb-3 last:border-0 last:pb-0">
       <dt className="text-sm text-gray-500">{label}</dt>

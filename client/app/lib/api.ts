@@ -1,42 +1,64 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
-// ─── Token helpers ────────────────────────────────────────────────────────────
+// ─── In-memory token store (XSS-safe – OWASP A03:2021) ───────────────────────
+let _accessToken: string | null = null;
+
 export function getAccessToken(): string | null {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem("accessToken");
+  return _accessToken;
 }
-
 export function setAccessToken(token: string) {
-  localStorage.setItem("accessToken", token);
+  _accessToken = token;
 }
-
 export function clearAccessToken() {
-  localStorage.removeItem("accessToken");
+  _accessToken = null;
 }
 
-// ─── Core fetch wrapper ───────────────────────────────────────────────────────
-async function request<T>(
-  path: string,
-  options: RequestInit = {}
-): Promise<T> {
-  const token = getAccessToken();
+// ─── Silent refresh flag (prevent concurrent refresh races) ───────────────────
+let _refreshing: Promise<string> | null = null;
+
+// ─── Core fetch wrapper with auto-refresh (OWASP A07:2021) ───────────────────
+async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     ...(options.headers as Record<string, string>),
   };
-  if (token) headers["Authorization"] = `Bearer ${token}`;
 
-  const res = await fetch(`${API_URL}${path}`, {
+  if (_accessToken) headers["Authorization"] = `Bearer ${_accessToken}`;
+
+  let res = await fetch(`${API_URL}${path}`, {
     ...options,
     headers,
-    credentials: "include", // send cookies for refresh token
+    credentials: "include", // send httpOnly refreshToken cookie
   });
 
-  const data = await res.json().catch(() => ({}));
-
-  if (!res.ok) {
-    throw { status: res.status, ...(data as object) };
+  // If 401, attempt silent refresh then retry once
+  if (res.status === 401 && path !== "/api/auth/refresh") {
+    try {
+      if (!_refreshing) {
+        _refreshing = authApi
+          .refresh()
+          .then((d) => {
+            setAccessToken(d.accessToken);
+            return d.accessToken;
+          })
+          .finally(() => {
+            _refreshing = null;
+          });
+      }
+      const newToken = await _refreshing;
+      headers["Authorization"] = `Bearer ${newToken}`;
+      res = await fetch(`${API_URL}${path}`, {
+        ...options,
+        headers,
+        credentials: "include",
+      });
+    } catch {
+      clearAccessToken();
+    }
   }
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw { status: res.status, ...(data as object) };
   return data as T;
 }
 
@@ -48,10 +70,10 @@ export const authApi = {
     password: string;
     captchaToken: string;
   }) =>
-    request<{ message: string; user: { id: string; email: string; username: string } }>(
-      "/api/auth/register",
-      { method: "POST", body: JSON.stringify(payload) }
-    ),
+    request<{ message: string }>("/api/auth/register", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
 
   login: (payload: {
     email: string;
@@ -60,7 +82,7 @@ export const authApi = {
     mfaToken?: string;
   }) =>
     request<
-      | { accessToken: string; expiresIn: number; user: UserProfile }
+      | { accessToken: string; expiresIn: string; user: UserProfile }
       | { error: "MFA_REQUIRED"; tempToken: string; mfaRequired: true }
     >("/api/auth/login", { method: "POST", body: JSON.stringify(payload) }),
 
@@ -76,42 +98,51 @@ export const authApi = {
       body: JSON.stringify(payload),
     }),
 
-  resetPassword: (token: string, payload: { password: string; captchaToken: string }) =>
+  resetPassword: (
+    token: string,
+    payload: { password: string; captchaToken: string },
+  ) =>
     request<{ message: string }>(`/api/auth/reset-password/${token}`, {
       method: "POST",
       body: JSON.stringify(payload),
     }),
 
   setupMfa: () =>
-    request<{ secret: string; qrCode: string; backupCodes: string[] }>(
+    request<{ qrCodeDataUrl: string; backupCodes: string[]; message: string }>(
       "/api/auth/mfa/setup",
-      { method: "POST" }
+      { method: "POST" },
     ),
 
   confirmMfa: (payload: { token: string }) =>
-    request<{ message: string; backupCodes: string[] }>("/api/auth/mfa/confirm", {
+    request<{ message: string }>("/api/auth/mfa/confirm", {
       method: "POST",
       body: JSON.stringify(payload),
     }),
 
   refresh: () =>
-    request<{ accessToken: string; expiresIn: number }>("/api/auth/refresh", {
+    request<{ accessToken: string; expiresIn: string }>("/api/auth/refresh", {
       method: "POST",
     }),
 
   logout: () =>
     request<{ message: string }>("/api/auth/logout", { method: "POST" }),
 
-  getProfile: () => request<{ user: UserProfile }>("/api/auth/profile"),
+  getProfile: () => request<UserProfile>("/api/profile", { method: "GET" }),
 };
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// ─── Types ─────────────────────────────────────────────────────────────────────
 export interface UserProfile {
   id: string;
   email: string;
   username: string;
-  emailVerified: boolean;
+  role: string;
+  isEmailVerified: boolean;
   mfaEnabled: boolean;
   createdAt?: string;
-  passwordExpiresAt?: string;
+  profile?: {
+    firstName?: string;
+    lastName?: string;
+    bio?: string;
+    avatarUrl?: string;
+  };
 }

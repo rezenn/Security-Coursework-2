@@ -1,11 +1,16 @@
 "use client";
+// Register page — GyanKosh
+// NIST SP 800-63B §5.1.1: password policy enforced client + server side.
+// reCAPTCHA v3 protects against automated registration (OWASP WSTG-AUTHN-09)
 import { useState } from "react";
-// import { authApi } from "@/lib/api";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { authApi } from "@/app/lib/api";
+import { useRecaptcha } from "@/app/hooks/useRecaptcha";
 
 export default function RegisterPage() {
   const router = useRouter();
+  const { getToken } = useRecaptcha();
   const [form, setForm] = useState({
     email: "",
     username: "",
@@ -15,39 +20,58 @@ export default function RegisterPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // const handleSubmit = async () => {
-  //   setError("");
-  //   if (form.password !== form.confirm) {
-  //     setError("Passwords do not match");
-  //     return;
-  //   }
-  //   if (form.password.length < 12) {
-  //     setError("Password must be at least 12 characters");
-  //     return;
-  //   }
-  //   setLoading(true);
-  //   try {
-  //     const res = await authApi.register({
-  //       email: form.email,
-  //       username: form.username,
-  //       password: form.password,
-  //       captchaToken: "test-token",
-  //     });
-  //     const data = await res.json();
-  //     if (!res.ok) throw new Error(data.error || "Registration failed");
-  //     router.push(`/verify-email?email=${encodeURIComponent(form.email)}`);
-  //   } catch (e: any) {
-  //     setError(e.message);
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // };
+  const handleSubmit = async () => {
+    setError("");
+    // Client-side pre-validation (NIST 800-63B — reduce unnecessary server calls)
+    if (form.password !== form.confirm) {
+      setError("Passwords do not match.");
+      return;
+    }
+    if (form.password.length < 12) {
+      setError("Password must be at least 12 characters.");
+      return;
+    }
+    if (
+      !/[A-Z]/.test(form.password) ||
+      !/[0-9]/.test(form.password) ||
+      !/[^a-zA-Z0-9]/.test(form.password)
+    ) {
+      setError(
+        "Password must include an uppercase letter, a number, and a special character.",
+      );
+      return;
+    }
+    setLoading(true);
+    try {
+      // OWASP WSTG-AUTHN-09: CAPTCHA before account creation
+      const captchaToken = await getToken("register");
+      await authApi.register({
+        email: form.email,
+        username: form.username,
+        password: form.password,
+        captchaToken,
+      });
+      // Redirect to email verification with pre-filled email
+      router.push(`/verify-email?email=${encodeURIComponent(form.email)}`);
+    } catch (e: unknown) {
+      const err = e as { error?: string; message?: string };
+      setError(
+        err.error || err.message || "Registration failed. Please try again.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const requirements = [
     { text: "12+ characters", met: form.password.length >= 12 },
     { text: "Uppercase letter", met: /[A-Z]/.test(form.password) },
     { text: "Number", met: /[0-9]/.test(form.password) },
     { text: "Special character", met: /[^a-zA-Z0-9]/.test(form.password) },
+    {
+      text: "Passwords match",
+      met: form.confirm.length > 0 && form.password === form.confirm,
+    },
   ];
 
   return (
@@ -63,27 +87,15 @@ export default function RegisterPage() {
           <div className="flex items-center gap-2 mb-6">
             <div
               style={{ background: "var(--vw-accent)" }}
-              className="w-7 h-7 rounded-lg flex items-center justify-center"
+              className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-sm font-bold"
             >
-              <svg
-                className="w-4 h-4 text-white"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                />
-              </svg>
+              G
             </div>
             <span
               style={{ color: "var(--vw-text)" }}
               className="font-semibold text-sm tracking-wide"
             >
-              VaultWork
+              GyanKosh
             </span>
           </div>
           <h1
@@ -92,6 +104,9 @@ export default function RegisterPage() {
           >
             Create account
           </h1>
+          <p style={{ color: "var(--vw-muted)" }} className="text-sm mt-1">
+            Join the academic resource marketplace.
+          </p>
         </div>
 
         {error && (
@@ -114,24 +129,28 @@ export default function RegisterPage() {
               key: "email",
               type: "email",
               placeholder: "you@example.com",
+              autoComplete: "email",
             },
             {
               label: "Username",
               key: "username",
               type: "text",
               placeholder: "johndoe",
+              autoComplete: "username",
             },
             {
               label: "Password",
               key: "password",
               type: "password",
               placeholder: "••••••••••••",
+              autoComplete: "new-password",
             },
             {
               label: "Confirm password",
               key: "confirm",
               type: "password",
               placeholder: "••••••••••••",
+              autoComplete: "new-password",
             },
           ].map((f) => (
             <div key={f.key}>
@@ -143,11 +162,13 @@ export default function RegisterPage() {
               </label>
               <input
                 type={f.type}
-                value={(form as any)[f.key]}
+                value={(form as Record<string, string>)[f.key]}
                 onChange={(e) =>
                   setForm((prev) => ({ ...prev, [f.key]: e.target.value }))
                 }
+                onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
                 placeholder={f.placeholder}
+                autoComplete={f.autoComplete}
                 style={{
                   background: "var(--vw-input-bg)",
                   border: "1px solid var(--vw-border)",
@@ -177,12 +198,12 @@ export default function RegisterPage() {
         )}
 
         <button
-          // onClick={handleSubmit}
+          onClick={handleSubmit}
           disabled={loading}
           style={{ background: "var(--vw-accent)" }}
-          className="mt-6 w-full py-2.5 rounded-lg text-white font-medium text-sm transition-all hover:opacity-90 disabled:opacity-50"
+          className="mt-6 w-full py-2.5 rounded-lg text-white font-medium text-sm transition-all hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {loading ? "Creating account..." : "Create account"}
+          {loading ? "Creating account…" : "Create account"}
         </button>
 
         <p

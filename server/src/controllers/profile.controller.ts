@@ -17,11 +17,14 @@ export const getProfile = async (
     return;
   }
 
+  // Return all fields needed by the frontend UserProfile type
   res.status(200).json({
     id: user._id,
     email: user.email,
     username: user.username,
     role: user.role,
+    isEmailVerified: user.isEmailVerified,
+    mfaEnabled: user.mfa.enabled,
     profile: user.profile,
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
@@ -49,11 +52,7 @@ export const updateProfile = async (
   const user = await User.findByIdAndUpdate(
     req.user.sub,
     { $set: { profile: updates } },
-    {
-      new: true,
-      runValidators: true,
-      context: "query",
-    },
+    { new: true, runValidators: true, context: "query" },
   );
 
   if (!user) {
@@ -65,9 +64,7 @@ export const updateProfile = async (
     "profile_updated",
     user._id.toHexString(),
     req.ip || "unknown",
-    {
-      updatedFields: Object.keys(updates),
-    },
+    { updatedFields: Object.keys(updates) },
   );
 
   res.status(200).json({ message: "Profile updated", profile: user.profile });
@@ -88,12 +85,14 @@ export const exportProfile = async (
     return;
   }
 
+  // Content-Disposition header triggers download (GDPR data portability)
   res.setHeader("Content-Disposition", "attachment; filename=profile.json");
   res.status(200).json({
     id: user._id,
     email: user.email,
     username: user.username,
     role: user.role,
+    isEmailVerified: user.isEmailVerified,
     profile: user.profile,
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,

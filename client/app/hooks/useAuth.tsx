@@ -1,4 +1,5 @@
 "use client";
+
 import React, {
   createContext,
   useContext,
@@ -10,14 +11,12 @@ import {
   authApi,
   setAccessToken,
   clearAccessToken,
-  getAccessToken,
   UserProfile,
 } from "../lib/api";
 
 interface AuthState {
   user: UserProfile | null;
   loading: boolean;
-  accessToken: string | null;
   login: (token: string, user: UserProfile) => void;
   logout: () => Promise<void>;
   refreshAuth: () => Promise<void>;
@@ -28,11 +27,9 @@ const AuthContext = createContext<AuthState | null>(null);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [accessToken, setToken] = useState<string | null>(null);
 
   const login = useCallback((token: string, userData: UserProfile) => {
     setAccessToken(token);
-    setToken(token);
     setUser(userData);
   }, []);
 
@@ -40,10 +37,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       await authApi.logout();
     } catch {
-      /* ignore */
+      /* ignore – clear locally regardless */
     } finally {
       clearAccessToken();
-      setToken(null);
       setUser(null);
     }
   }, []);
@@ -52,39 +48,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const { accessToken: newToken } = await authApi.refresh();
       setAccessToken(newToken);
-      setToken(newToken);
-      const { user: profile } = await authApi.getProfile();
+      // Fetch profile to confirm the token is valid
+      const profile = await authApi.getProfile();
       setUser(profile);
     } catch {
       clearAccessToken();
-      setToken(null);
       setUser(null);
     }
   }, []);
 
-  // On mount: try to restore session via stored token or cookie-based refresh
+  // On mount: attempt session restore via httpOnly refresh cookie
   useEffect(() => {
-    const stored = getAccessToken();
-    if (stored) {
-      setToken(stored);
-      authApi
-        .getProfile()
-        .then(({ user: profile }) => setUser(profile))
-        .catch(() => {
-          // access token expired – try refresh
-          refreshAuth();
-        })
-        .finally(() => setLoading(false));
-    } else {
-      // Try refresh token in cookie
-      refreshAuth().finally(() => setLoading(false));
-    }
+    refreshAuth().finally(() => setLoading(false));
   }, [refreshAuth]);
 
   return (
-    <AuthContext.Provider
-      value={{ user, loading, accessToken, login, logout, refreshAuth }}
-    >
+    <AuthContext.Provider value={{ user, loading, login, logout, refreshAuth }}>
       {children}
     </AuthContext.Provider>
   );

@@ -1,33 +1,38 @@
 "use client";
+// Forgot password — GyanKosh
+// OWASP WSTG-AUTHN-09: vague response prevents user enumeration
 import { useState } from "react";
-// import { authApi } from "@/lib/api";
 import Link from "next/link";
+import { authApi } from "@/app/lib/api";
+import { useRecaptcha } from "@/app/hooks/useRecaptcha";
 
 export default function ForgotPasswordPage() {
+  const { getToken } = useRecaptcha();
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // const handleSubmit = async () => {
-  //   setError("");
-  //   setLoading(true);
-  //   try {
-  //     const res = await authApi.requestPasswordReset({
-  //       email,
-  //       captchaToken: "test-token",
-  //     });
-  //     if (!res.ok) {
-  //       const d = await res.json();
-  //       throw new Error(d.error);
-  //     }
-  //     setSent(true);
-  //   } catch (e: any) {
-  //     setError(e.message);
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // };
+  const handleSubmit = async () => {
+    setError("");
+    if (!email) {
+      setError("Please enter your email address.");
+      return;
+    }
+    setLoading(true);
+    try {
+      const captchaToken = await getToken("password_reset");
+      await authApi.requestPasswordReset({ email, captchaToken });
+      setSent(true);
+    } catch (e: unknown) {
+      const err = e as { error?: string; message?: string };
+      setError(
+        err.error || err.message || "Something went wrong. Please try again.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="w-full max-w-md px-4">
@@ -86,27 +91,15 @@ export default function ForgotPasswordPage() {
               <div className="flex items-center gap-2 mb-6">
                 <div
                   style={{ background: "var(--vw-accent)" }}
-                  className="w-7 h-7 rounded-lg flex items-center justify-center"
+                  className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-sm font-bold"
                 >
-                  <svg
-                    className="w-4 h-4 text-white"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                    />
-                  </svg>
+                  G
                 </div>
                 <span
                   style={{ color: "var(--vw-text)" }}
                   className="font-semibold text-sm tracking-wide"
                 >
-                  VaultWork
+                  GyanKosh
                 </span>
               </div>
               <h1
@@ -115,6 +108,9 @@ export default function ForgotPasswordPage() {
               >
                 Reset password
               </h1>
+              <p style={{ color: "var(--vw-muted)" }} className="text-sm mt-1">
+                Enter your email and we will send a reset link.
+              </p>
             </div>
 
             {error && (
@@ -140,8 +136,9 @@ export default function ForgotPasswordPage() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              // onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
+              onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
               placeholder="you@example.com"
+              autoComplete="email"
               style={{
                 background: "var(--vw-input-bg)",
                 border: "1px solid var(--vw-border)",
@@ -151,12 +148,12 @@ export default function ForgotPasswordPage() {
             />
 
             <button
-              // onClick={handleSubmit}
+              onClick={handleSubmit}
               disabled={loading}
               style={{ background: "var(--vw-accent)" }}
               className="mt-5 w-full py-2.5 rounded-lg text-white font-medium text-sm hover:opacity-90 disabled:opacity-50 transition-all"
             >
-              {loading ? "Sending..." : "Send reset link"}
+              {loading ? "Sending…" : "Send reset link"}
             </button>
 
             <p className="mt-5 text-center text-sm">

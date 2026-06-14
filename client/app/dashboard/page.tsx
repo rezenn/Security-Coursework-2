@@ -1,4 +1,6 @@
 "use client";
+// Dashboard — GyanKosh
+// Protected route: redirects unauthenticated users (OWASP A01:2021)
 import { useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -27,7 +29,6 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Navbar */}
       <header className="border-b border-gray-200 bg-white px-6 py-4">
         <div className="mx-auto flex max-w-4xl items-center justify-between">
           <div className="flex items-center gap-2">
@@ -39,10 +40,10 @@ export default function DashboardPage() {
           <div className="flex items-center gap-4">
             <span className="text-sm text-gray-500">Hi, {user.username}</span>
             <Link
-              href="/profile"
+              href="/mfa-setup"
               className="text-sm font-medium text-blue-600 hover:underline"
             >
-              Profile
+              Security
             </Link>
             <button
               onClick={handleLogout}
@@ -54,19 +55,15 @@ export default function DashboardPage() {
         </div>
       </header>
 
-      {/* Main */}
       <main className="mx-auto max-w-4xl px-6 py-10">
         <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-        <p className="mt-1 text-gray-500">
-          You are securely signed in.
-        </p>
+        <p className="mt-1 text-gray-500">You are securely signed in.</p>
 
-        {/* Status cards */}
         <div className="mt-8 grid gap-4 sm:grid-cols-3">
           <StatusCard
             label="Email"
-            value={user.emailVerified ? "Verified ✓" : "Not verified ✗"}
-            ok={user.emailVerified}
+            value={user.isEmailVerified ? "Verified ✓" : "Not verified ✗"}
+            ok={user.isEmailVerified}
           />
           <StatusCard
             label="MFA"
@@ -83,14 +80,9 @@ export default function DashboardPage() {
               ) : null
             }
           />
-          <StatusCard
-            label="Account"
-            value={user.username}
-            ok
-          />
+          <StatusCard label="Account" value={user.username} ok />
         </div>
 
-        {/* Security notice */}
         {!user.mfaEnabled && (
           <div className="mt-6 rounded-xl border border-yellow-200 bg-yellow-50 px-5 py-4">
             <p className="text-sm font-medium text-yellow-800">
@@ -98,7 +90,7 @@ export default function DashboardPage() {
             </p>
             <p className="mt-1 text-sm text-yellow-700">
               Enable two-factor authentication to protect your account from
-              unauthorised access.
+              unauthorised access (NIST SP 800-63B recommendation).
             </p>
             <Link
               href="/mfa-setup"
@@ -130,9 +122,7 @@ function StatusCard({
         {label}
       </p>
       <p
-        className={`mt-1 text-sm font-semibold ${
-          ok ? "text-green-700" : "text-red-600"
-        }`}
+        className={`mt-1 text-sm font-semibold ${ok ? "text-green-700" : "text-red-600"}`}
       >
         {value}
       </p>

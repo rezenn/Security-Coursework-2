@@ -1,9 +1,11 @@
 "use client";
-import { useState, useRef } from "react";
-// import { authApi } from "@/lib/api";
+// Email verification — GyanKosh
+// OWASP WSTG-AUTHN-02: 6-digit OTP with server-enforced expiry
+import { useState, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { authApi } from "@/app/lib/api";
 
-export default function VerifyEmailPage() {
+function VerifyEmailInner() {
   const router = useRouter();
   const email = useSearchParams().get("email") || "";
   const [code, setCode] = useState(["", "", "", "", "", ""]);
@@ -20,26 +22,27 @@ export default function VerifyEmailPage() {
     if (val && i < 5) inputs.current[i + 1]?.focus();
   };
 
-  //   const handleSubmit = async () => {
-  //     const fullCode = code.join("");
-  //     if (fullCode.length < 6) {
-  //       setError("Enter all 6 digits");
-  //       return;
-  //     }
-  //     setError("");
-  //     setLoading(true);
-  //     try {
-  //       const res = await authApi.verifyEmailCode({ email, code: fullCode });
-  //       const data = await res.json();
-  //       if (!res.ok) throw new Error(data.error || "Verification failed");
-  //       setSuccess(true);
-  //       setTimeout(() => router.push("/login"), 2000);
-  //     } catch (e: any) {
-  //       setError(e.message);
-  //     } finally {
-  //       setLoading(false);
-  //     }
-  //   };
+  const handleSubmit = async () => {
+    const fullCode = code.join("");
+    if (fullCode.length < 6) {
+      setError("Enter all 6 digits.");
+      return;
+    }
+    setError("");
+    setLoading(true);
+    try {
+      await authApi.verifyEmailByCode({ email, code: fullCode });
+      setSuccess(true);
+      setTimeout(() => router.push("/login"), 2000);
+    } catch (e: unknown) {
+      const err = e as { error?: string; message?: string };
+      setError(
+        err.error || err.message || "Verification failed. Please try again.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="w-full max-w-md px-4">
@@ -95,7 +98,7 @@ export default function VerifyEmailPage() {
             }}
             className="mb-5 p-3 rounded-lg text-sm"
           >
-            Email verified — redirecting...
+            Email verified — redirecting to sign in…
           </div>
         )}
         {error && (
@@ -126,6 +129,7 @@ export default function VerifyEmailPage() {
               onKeyDown={(e) => {
                 if (e.key === "Backspace" && !digit && i > 0)
                   inputs.current[i - 1]?.focus();
+                if (e.key === "Enter" && i === 5) handleSubmit();
               }}
               style={{
                 background: "var(--vw-input-bg)",
@@ -140,14 +144,22 @@ export default function VerifyEmailPage() {
         </div>
 
         <button
-          //   onClick={handleSubmit}
+          onClick={handleSubmit}
           disabled={loading || success}
           style={{ background: "var(--vw-accent)" }}
           className="w-full py-2.5 rounded-lg text-white font-medium text-sm hover:opacity-90 disabled:opacity-50 transition-all"
         >
-          {loading ? "Verifying..." : "Verify email"}
+          {loading ? "Verifying…" : "Verify email"}
         </button>
       </div>
     </div>
+  );
+}
+
+export default function VerifyEmailPage() {
+  return (
+    <Suspense>
+      <VerifyEmailInner />
+    </Suspense>
   );
 }

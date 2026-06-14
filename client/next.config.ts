@@ -7,31 +7,23 @@ const nextConfig: NextConfig = {
     },
   },
 
+  // Proxy /api/* to the Express backend in development
+  // Eliminates CORS preflight for same-origin requests (OWASP A05:2021)
+  async rewrites() {
+    return [
+      {
+        source: "/api/:path*",
+        destination: `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/:path*`,
+      },
+    ];
+  },
+
   images: {
-    dangerouslyAllowLocalIP: true,
     remotePatterns: [
       {
         protocol: "http",
         hostname: "localhost",
-        port: "5050",
-        pathname: "/uploads/**",
-      },
-      {
-        protocol: "http",
-        hostname: "localhost",
-        port: "5050",
-        pathname: "/uploads/profile/**",
-      },
-      {
-        protocol: "http",
-        hostname: "localhost",
-        port: "3000",
-        pathname: "/uploads/**",
-      },
-      {
-        protocol: "http",
-        hostname: "127.0.0.1",
-        port: "5050",
+        port: "5000",
         pathname: "/uploads/**",
       },
     ],
