@@ -1,5 +1,5 @@
 "use client";
-// Reset password — GyanKosh
+// Reset password via email link — GyanKosh
 // OWASP WSTG-AUTHN-09: token is consumed server-side and expires after use
 import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -32,10 +32,29 @@ export default function ResetPasswordPage() {
       await authApi.resetPassword(token, { password, captchaToken });
       router.push("/login?reset=1");
     } catch (e: unknown) {
-      const err = e as { error?: string; message?: string };
-      setError(
-        err.error || err.message || "Reset failed. The link may have expired.",
-      );
+      const err = e as { error?: string; message?: string; details?: unknown };
+      const msg = err.error || err.message || "";
+      // Give a clear, specific message depending on what failed
+      if (
+        msg.toLowerCase().includes("reuse") ||
+        msg.toLowerCase().includes("history")
+      ) {
+        setError(
+          "You cannot reuse a recent password for this account. Please choose a new password you haven't used before.",
+        );
+      } else if (
+        msg.toLowerCase().includes("requirement") ||
+        msg.toLowerCase().includes("policy") ||
+        err.details
+      ) {
+        setError(
+          "Your new password doesn't meet the requirements. It needs 12+ characters, uppercase, lowercase, a number, and a special character.",
+        );
+      } else {
+        setError(
+          msg || "Reset failed. The link may have expired — request a new one.",
+        );
+      }
     } finally {
       setLoading(false);
     }
@@ -82,6 +101,9 @@ export default function ResetPasswordPage() {
           >
             Set new password
           </h1>
+          <p style={{ color: "var(--vw-muted)" }} className="text-sm mt-1">
+            Choose a strong password you haven't used recently.
+          </p>
         </div>
 
         {error && (
@@ -154,6 +176,14 @@ export default function ResetPasswordPage() {
         </button>
 
         <p className="mt-5 text-center text-sm">
+          <Link
+            href="/forgot-password"
+            style={{ color: "var(--vw-accent)" }}
+            className="hover:underline"
+          >
+            Request a new link
+          </Link>
+          {" · "}
           <Link
             href="/login"
             style={{ color: "var(--vw-accent)" }}

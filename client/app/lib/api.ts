@@ -31,8 +31,21 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     credentials: "include", // send httpOnly refreshToken cookie
   });
 
-  // If 401, attempt silent refresh then retry once
+  // If 401, peek at the body before deciding whether to refresh.
+  // MFA_REQUIRED is a legitimate 401 that must be returned to the caller —
+  // attempting a token refresh would just fail and obscure the real state.
   if (res.status === 401 && path !== "/api/auth/refresh") {
+    const cloned = res.clone();
+    const peek = (await cloned.json().catch(() => ({}))) as Record<
+      string,
+      unknown
+    >;
+    if (peek.mfaRequired === true || peek.error === "MFA_REQUIRED") {
+      // Throw with the full MFA payload so login page can intercept it
+      throw { status: 401, ...peek };
+    }
+
+    // Normal silent-refresh retry for expired access tokens
     try {
       if (!_refreshing) {
         _refreshing = authApi
@@ -103,6 +116,18 @@ export const authApi = {
     payload: { password: string; captchaToken: string },
   ) =>
     request<{ message: string }>(`/api/auth/reset-password/${token}`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+
+  // Code-based password reset (entered from email, no link click required)
+  resetPasswordWithCode: (payload: {
+    email: string;
+    code: string;
+    password: string;
+    captchaToken: string;
+  }) =>
+    request<{ message: string }>("/api/auth/reset-password", {
       method: "POST",
       body: JSON.stringify(payload),
     }),

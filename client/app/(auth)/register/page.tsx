@@ -22,6 +22,13 @@ export default function RegisterPage() {
 
   const handleSubmit = async () => {
     setError("");
+    // Username — only letters, numbers, hyphens, underscores (no spaces)
+    if (!/^[a-zA-Z0-9_-]+$/.test(form.username.trim())) {
+      setError(
+        "Username can only contain letters, numbers, hyphens (-), and underscores (_). No spaces allowed.",
+      );
+      return;
+    }
     // Client-side pre-validation (NIST 800-63B — reduce unnecessary server calls)
     if (form.password !== form.confirm) {
       setError("Passwords do not match.");
@@ -137,6 +144,7 @@ export default function RegisterPage() {
               type: "text",
               placeholder: "johndoe",
               autoComplete: "username",
+              hint: "Letters, numbers, - and _ only. No spaces.",
             },
             {
               label: "Password",
@@ -176,6 +184,14 @@ export default function RegisterPage() {
                 }}
                 className="w-full px-3.5 py-2.5 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all placeholder:text-gray-600"
               />
+              {(f as any).hint && (
+                <p
+                  className="mt-1 text-xs"
+                  style={{ color: "var(--vw-muted)" }}
+                >
+                  {(f as any).hint}
+                </p>
+              )}
             </div>
           ))}
         </div>

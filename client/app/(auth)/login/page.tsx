@@ -1,6 +1,6 @@
 "use client";
 // Login page — GyanKosh
-// Security: rate limiting on server, reCAPTCHA v3 bypass for dev (test-token),
+// Security: rate limiting on server, reCAPTCHA v3 (visible badge via layout.tsx),
 // MFA flow via sessionStorage temp handoff (NIST SP 800-63B §5.2.3)
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -12,7 +12,7 @@ import { useRecaptcha } from "@/app/hooks/useRecaptcha";
 export default function LoginPage() {
   const { login } = useAuth();
   const router = useRouter();
-  const { getToken } = useRecaptcha();
+  const { getToken, siteKey } = useRecaptcha();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -20,25 +20,47 @@ export default function LoginPage() {
   const [mfaRequired, setMfaRequired] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [captchaChecking, setCaptchaChecking] = useState(false);
 
   const handleSubmit = async () => {
     setError("");
     setLoading(true);
     try {
-      // OWASP WSTG-AUTHN-01: verify captcha before credentials are sent
+      // Show brief captcha-checking state so user sees verification happening
+      setCaptchaChecking(true);
       const captchaToken = await getToken("login");
-      const result = await authApi.login({
-        email,
-        password,
-        captchaToken,
-        mfaToken: mfaRequired ? mfaToken : undefined,
-      });
+      setCaptchaChecking(false);
 
-      if ("mfaRequired" in result && result.mfaRequired) {
-        // Store minimal context for MFA step — NOT the password (NIST 800-63B)
-        sessionStorage.setItem("mfaEmail", email);
-        sessionStorage.setItem("mfaPassword", password); // needed to re-auth on MFA step
-        setMfaRequired(true);
+      let result;
+      try {
+        result = await authApi.login({
+          email,
+          password,
+          captchaToken,
+          mfaToken: mfaRequired && mfaToken ? mfaToken : undefined,
+        });
+      } catch (e: unknown) {
+        // The server returns 401 with { error: "MFA_REQUIRED", mfaRequired: true }
+        // Our fetch wrapper throws on non-2xx, so we catch it here and check the body.
+        const err = e as {
+          error?: string;
+          mfaRequired?: boolean;
+          tempToken?: string;
+          message?: string;
+          status?: number;
+        };
+        if (err.mfaRequired === true || err.error === "MFA_REQUIRED") {
+          // Stash credentials for the MFA step re-auth
+          sessionStorage.setItem("mfaEmail", email);
+          sessionStorage.setItem("mfaPassword", password);
+          setMfaRequired(true);
+          setLoading(false);
+          return;
+        }
+        // Any other error — surface it
+        setError(
+          err.error || err.message || "Sign in failed. Please try again.",
+        );
         setLoading(false);
         return;
       }
@@ -50,11 +72,19 @@ export default function LoginPage() {
         router.push("/dashboard");
       }
     } catch (e: unknown) {
+      setCaptchaChecking(false);
       const err = e as { error?: string; message?: string };
       setError(err.error || err.message || "Sign in failed. Please try again.");
     } finally {
       setLoading(false);
     }
+  };
+
+  const buttonLabel = () => {
+    if (captchaChecking) return "Verifying CAPTCHA…";
+    if (loading) return "Signing in…";
+    if (mfaRequired) return "Verify code";
+    return "Sign in";
   };
 
   return (
@@ -178,9 +208,12 @@ export default function LoginPage() {
               maxLength={6}
               value={mfaToken}
               onChange={(e) => setMfaToken(e.target.value.replace(/\D/g, ""))}
-              onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
+              onKeyDown={(e) =>
+                e.key === "Enter" && mfaToken.length === 6 && handleSubmit()
+              }
               placeholder="000000"
               autoComplete="one-time-code"
+              autoFocus
               style={{
                 background: "var(--vw-input-bg)",
                 border: "1px solid var(--vw-border)",
@@ -192,6 +225,8 @@ export default function LoginPage() {
               onClick={() => {
                 setMfaRequired(false);
                 setMfaToken("");
+                sessionStorage.removeItem("mfaEmail");
+                sessionStorage.removeItem("mfaPassword");
               }}
               style={{ color: "var(--vw-muted)" }}
               className="mt-3 text-xs hover:underline"
@@ -201,16 +236,61 @@ export default function LoginPage() {
           </div>
         )}
 
+        {/* CAPTCHA checking indicator */}
+        {captchaChecking && (
+          <div
+            style={{ color: "var(--vw-muted)" }}
+            className="mt-3 flex items-center gap-2 text-xs"
+          >
+            <svg
+              className="h-3 w-3 animate-spin"
+              viewBox="0 0 24 24"
+              fill="none"
+            >
+              <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="4"
+              />
+              <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8v8H4z"
+              />
+            </svg>
+            Verifying reCAPTCHA…
+          </div>
+        )}
+
         <button
           onClick={handleSubmit}
-          disabled={loading}
+          disabled={
+            loading || captchaChecking || (mfaRequired && mfaToken.length !== 6)
+          }
           style={{
-            background: loading ? "var(--vw-border)" : "var(--vw-accent)",
+            background:
+              loading || captchaChecking
+                ? "var(--vw-border)"
+                : "var(--vw-accent)",
           }}
           className="mt-6 w-full py-2.5 rounded-lg text-white font-medium text-sm transition-all hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {loading ? "Signing in…" : mfaRequired ? "Verify code" : "Sign in"}
+          {buttonLabel()}
         </button>
+
+        {/* Dev notice when no real reCAPTCHA key is set */}
+        {!siteKey && (
+          <p
+            className="mt-3 text-center text-xs"
+            style={{ color: "var(--vw-muted)" }}
+          >
+            🔒 reCAPTCHA: dev bypass active (set NEXT_PUBLIC_RECAPTCHA_SITE_KEY
+            for real verification)
+          </p>
+        )}
 
         <p
           style={{ color: "var(--vw-muted)" }}

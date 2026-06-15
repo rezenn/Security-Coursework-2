@@ -1,10 +1,7 @@
 import { Request, Response } from "express";
 import User from "../models/user.model";
 import config from "../config/env.config";
-import {
-  assessPasswordStrength,
-  validatePasswordPolicy,
-} from "../services/password.service";
+import { validatePasswordPolicy } from "../services/password.service";
 import {
   generateAccessToken,
   generateRefreshToken,
@@ -74,17 +71,26 @@ const createSessionRecord = async (
 };
 
 export const register = async (req: Request, res: Response): Promise<void> => {
-  const { email, username, password } = req.body;
+  const { email, password } = req.body;
+  // Sanitise username: trim whitespace and collapse internal spaces to underscores
+  // so "john doe" becomes "john_doe" rather than crashing the server.
+  const username = (req.body.username as string)?.trim().replace(/\s+/g, "_");
+
+  if (!username || !/^[a-zA-Z0-9_-]+$/.test(username)) {
+    res.status(400).json({
+      error:
+        "Username can only contain letters, numbers, hyphens, and underscores (no spaces).",
+    });
+    return;
+  }
 
   const passwordPolicy = validatePasswordPolicy(password);
-  const passwordStrength = assessPasswordStrength(password, [email, username]);
 
-  if (!passwordPolicy.valid || !passwordStrength.isAcceptable) {
+  if (!passwordPolicy.valid) {
     res.status(400).json({
       error: "Password does not meet security requirements",
       details: {
         policy: passwordPolicy.errors,
-        strength: passwordStrength,
       },
     });
     return;
@@ -99,28 +105,45 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     return;
   }
 
-  const user = new User({ email, username, password });
-  const verification = user.generateEmailVerificationToken();
-  await user.save();
+  try {
+    const user = new User({ email, username, password });
+    const verification = user.generateEmailVerificationToken();
+    await user.save();
 
-  user.passwordHistory.push({ hash: user.password, changedAt: new Date() });
-  await user.save({ validateBeforeSave: false });
+    user.passwordHistory.push({ hash: user.password, changedAt: new Date() });
+    await user.save({ validateBeforeSave: false });
 
-  await sendVerificationEmail(
-    email,
-    username,
-    verification.token,
-    verification.code,
-  );
-  logSecurityEvent("user_registered", user._id.toHexString(), getSafeIp(req), {
-    email,
-    username,
-  });
+    await sendVerificationEmail(
+      email,
+      username,
+      verification.token,
+      verification.code,
+    );
+    logSecurityEvent(
+      "user_registered",
+      user._id.toHexString(),
+      getSafeIp(req),
+      {
+        email,
+        username,
+      },
+    );
 
-  res.status(201).json({
-    message:
-      "Registration successful. Verify your email address before logging in.",
-  });
+    res.status(201).json({
+      message:
+        "Registration successful. Verify your email address before logging in.",
+    });
+  } catch (err: any) {
+    // Catch Mongoose ValidationError (e.g. username regex) so the server never crashes
+    if (err.name === "ValidationError") {
+      const messages = Object.values(err.errors as Record<string, any>).map(
+        (e: any) => e.message,
+      );
+      res.status(400).json({ error: messages.join(" ") });
+      return;
+    }
+    throw err; // re-throw unexpected errors to the global error handler
+  }
 };
 
 export const verifyEmail = async (
@@ -436,9 +459,10 @@ export const resetPassword = async (
   }
 
   if (await user.isPasswordInHistory(password)) {
-    res
-      .status(400)
-      .json({ error: "New password cannot reuse recent password" });
+    res.status(400).json({
+      error:
+        "New password cannot be the same as a recently used password for this account. Please choose a different password.",
+    });
     return;
   }
 

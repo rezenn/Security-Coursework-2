@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import localFont from "next/font/local";
+import Script from "next/script";
 import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider } from "@/app/hooks/useAuth";
 import { ThemeProvider } from "next-themes";
@@ -26,6 +27,13 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${poppins.className} antialiased`}>
+        {/* reCAPTCHA v3 — badge is visible bottom-right on every auth page */}
+        {process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY && (
+          <Script
+            src={`https://www.google.com/recaptcha/api.js?render=${process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY}`}
+            strategy="afterInteractive"
+          />
+        )}
         <ThemeProvider attribute="class" enableSystem>
           <AuthProvider>
             {children}
