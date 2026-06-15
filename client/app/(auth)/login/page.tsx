@@ -281,17 +281,6 @@ export default function LoginPage() {
           {buttonLabel()}
         </button>
 
-        {/* Dev notice when no real reCAPTCHA key is set */}
-        {!siteKey && (
-          <p
-            className="mt-3 text-center text-xs"
-            style={{ color: "var(--vw-muted)" }}
-          >
-            🔒 reCAPTCHA: dev bypass active (set NEXT_PUBLIC_RECAPTCHA_SITE_KEY
-            for real verification)
-          </p>
-        )}
-
         <p
           style={{ color: "var(--vw-muted)" }}
           className="mt-5 text-center text-sm"
