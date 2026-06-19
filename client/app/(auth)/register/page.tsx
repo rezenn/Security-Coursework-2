@@ -1,7 +1,5 @@
 "use client";
-// Register page — GyanKosh
-// NIST SP 800-63B §5.1.1: password policy enforced client + server side.
-// reCAPTCHA v3 protects against automated registration (OWASP WSTG-AUTHN-09)
+
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -22,14 +20,12 @@ export default function RegisterPage() {
 
   const handleSubmit = async () => {
     setError("");
-    // Username — only letters, numbers, hyphens, underscores (no spaces)
     if (!/^[a-zA-Z0-9_-]+$/.test(form.username.trim())) {
       setError(
         "Username can only contain letters, numbers, hyphens (-), and underscores (_). No spaces allowed.",
       );
       return;
     }
-    // Client-side pre-validation (NIST 800-63B — reduce unnecessary server calls)
     if (form.password !== form.confirm) {
       setError("Passwords do not match.");
       return;
@@ -50,7 +46,6 @@ export default function RegisterPage() {
     }
     setLoading(true);
     try {
-      // OWASP WSTG-AUTHN-09: CAPTCHA before account creation
       const captchaToken = await getToken("register");
       await authApi.register({
         email: form.email,
@@ -58,7 +53,6 @@ export default function RegisterPage() {
         password: form.password,
         captchaToken,
       });
-      // Redirect to email verification with pre-filled email
       router.push(`/verify-email?email=${encodeURIComponent(form.email)}`);
     } catch (e: unknown) {
       const err = e as { error?: string; message?: string };

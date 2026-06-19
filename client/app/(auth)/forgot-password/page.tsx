@@ -1,7 +1,5 @@
 "use client";
-// Forgot password — GyanKosh
 // OWASP WSTG-AUTHN-09: vague response prevents user enumeration.
-// Supports both link-based and code-based reset without leaving this page.
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -21,7 +19,6 @@ export default function ForgotPasswordPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Step 1: Request reset email
   const handleRequestReset = async () => {
     setError("");
     if (!email) {
@@ -43,8 +40,6 @@ export default function ForgotPasswordPage() {
     }
   };
 
-  // Step 2: Validate the 6-digit code (just move to password step; actual validation
-  //         happens server-side when we submit the new password)
   const handleCodeContinue = () => {
     setError("");
     if (code.length !== 6 || !/^\d{6}$/.test(code)) {
@@ -54,7 +49,6 @@ export default function ForgotPasswordPage() {
     setStep("newPassword");
   };
 
-  // Step 3: Submit new password with code
   const handleResetWithCode = async () => {
     setError("");
     if (password !== confirmPassword) {
@@ -68,7 +62,6 @@ export default function ForgotPasswordPage() {
     setLoading(true);
     try {
       const captchaToken = await getToken("reset_password_code");
-      // Use the code-based reset endpoint: POST /reset-password with { email, code, password }
       await authApi.resetPasswordWithCode({
         email,
         code,
@@ -78,7 +71,6 @@ export default function ForgotPasswordPage() {
       setStep("done");
     } catch (e: unknown) {
       const err = e as { error?: string; message?: string };
-      // Surface specific "reused password" error clearly
       const msg = err.error || err.message || "";
       if (
         msg.toLowerCase().includes("reuse") ||

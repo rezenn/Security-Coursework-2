@@ -6,7 +6,6 @@ export const verifyRecaptcha = async (
   res: Response,
   next: NextFunction,
 ): Promise<void> => {
-  // Skip reCAPTCHA verification in development if token is "test-token"
   const token =
     (req.body && req.body.captchaToken) ||
     req.headers["x-captcha-token"] ||

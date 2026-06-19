@@ -57,7 +57,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // On mount: attempt session restore via httpOnly refresh cookie
   useEffect(() => {
     refreshAuth().finally(() => setLoading(false));
   }, [refreshAuth]);

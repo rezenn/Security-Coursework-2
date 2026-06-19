@@ -1,8 +1,6 @@
 
 "use client";
-// MFA Setup — GyanKosh
-// NIST SP 800-63B §5.1.3: TOTP (RFC 6238) with authenticator app binding
-// Backup codes are single-use and shown only once (OWASP WSTG-AUTHN-06)
+
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { authApi } from "@/app/lib/api";

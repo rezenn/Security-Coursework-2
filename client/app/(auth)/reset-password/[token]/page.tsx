@@ -1,6 +1,5 @@
 "use client";
-// Reset password via email link — GyanKosh
-// OWASP WSTG-AUTHN-09: token is consumed server-side and expires after use
+
 import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
@@ -34,7 +33,6 @@ export default function ResetPasswordPage() {
     } catch (e: unknown) {
       const err = e as { error?: string; message?: string; details?: unknown };
       const msg = err.error || err.message || "";
-      // Give a clear, specific message depending on what failed
       if (
         msg.toLowerCase().includes("reuse") ||
         msg.toLowerCase().includes("history")

@@ -72,8 +72,7 @@ const createSessionRecord = async (
 
 export const register = async (req: Request, res: Response): Promise<void> => {
   const { email, password } = req.body;
-  // Sanitise username: trim whitespace and collapse internal spaces to underscores
-  // so "john doe" becomes "john_doe" rather than crashing the server.
+
   const username = (req.body.username as string)?.trim().replace(/\s+/g, "_");
 
   if (!username || !/^[a-zA-Z0-9_-]+$/.test(username)) {
@@ -134,7 +133,6 @@ export const register = async (req: Request, res: Response): Promise<void> => {
         "Registration successful. Verify your email address before logging in.",
     });
   } catch (err: any) {
-    // Catch Mongoose ValidationError (e.g. username regex) so the server never crashes
     if (err.name === "ValidationError") {
       const messages = Object.values(err.errors as Record<string, any>).map(
         (e: any) => e.message,
@@ -142,7 +140,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       res.status(400).json({ error: messages.join(" ") });
       return;
     }
-    throw err; // re-throw unexpected errors to the global error handler
+    throw err;
   }
 };
 
@@ -233,17 +231,15 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     return;
   }
 
-  // If MFA is enabled, require MFA token
   if (user.mfa.enabled) {
     if (!mfaToken) {
-      // Return MFA_REQUIRED status with temporary session
       const sessionId = hashToken(`${user._id}-${Date.now()}`);
       const tempToken = generateAccessToken(
         user._id.toHexString(),
         user.email,
         user.role,
         sessionId,
-        "2m", // Very short expiry for MFA verification only
+        "2m",
       );
 
       res.status(401).json({

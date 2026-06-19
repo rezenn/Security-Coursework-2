@@ -17,7 +17,6 @@ export const getProfile = async (
     return;
   }
 
-  // Return all fields needed by the frontend UserProfile type
   res.status(200).json({
     id: user._id,
     email: user.email,
@@ -85,7 +84,6 @@ export const exportProfile = async (
     return;
   }
 
-  // Content-Disposition header triggers download (GDPR data portability)
   res.setHeader("Content-Disposition", "attachment; filename=profile.json");
   res.status(200).json({
     id: user._id,

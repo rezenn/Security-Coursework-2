@@ -1,6 +1,5 @@
 "use client";
-// MFA verification page (for users who already have MFA enabled at login)
-// NIST SP 800-63B §5.1.3: secondary TOTP factor verification
+
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { authApi } from "../lib/api";

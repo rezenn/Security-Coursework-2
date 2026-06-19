@@ -1,6 +1,5 @@
 "use client";
-// Email verification — GyanKosh
-// OWASP WSTG-AUTHN-02: 6-digit OTP with server-enforced expiry
+
 import { useState, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { authApi } from "@/app/lib/api";

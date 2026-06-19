@@ -1,6 +1,5 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
-// ─── In-memory token store (XSS-safe – OWASP A03:2021) ───────────────────────
 let _accessToken: string | null = null;
 
 export function getAccessToken(): string | null {
@@ -13,10 +12,8 @@ export function clearAccessToken() {
   _accessToken = null;
 }
 
-// ─── Silent refresh flag (prevent concurrent refresh races) ───────────────────
 let _refreshing: Promise<string> | null = null;
 
-// ─── Core fetch wrapper with auto-refresh (OWASP A07:2021) ───────────────────
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
@@ -28,12 +25,10 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   let res = await fetch(`${API_URL}${path}`, {
     ...options,
     headers,
-    credentials: "include", // send httpOnly refreshToken cookie
+    credentials: "include",
   });
 
-  // If 401, peek at the body before deciding whether to refresh.
-  // MFA_REQUIRED is a legitimate 401 that must be returned to the caller —
-  // attempting a token refresh would just fail and obscure the real state.
+
   if (res.status === 401 && path !== "/api/auth/refresh") {
     const cloned = res.clone();
     const peek = (await cloned.json().catch(() => ({}))) as Record<
@@ -41,11 +36,9 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
       unknown
     >;
     if (peek.mfaRequired === true || peek.error === "MFA_REQUIRED") {
-      // Throw with the full MFA payload so login page can intercept it
       throw { status: 401, ...peek };
     }
 
-    // Normal silent-refresh retry for expired access tokens
     try {
       if (!_refreshing) {
         _refreshing = authApi
@@ -75,7 +68,6 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   return data as T;
 }
 
-// ─── Auth API ─────────────────────────────────────────────────────────────────
 export const authApi = {
   register: (payload: {
     email: string;
@@ -120,7 +112,6 @@ export const authApi = {
       body: JSON.stringify(payload),
     }),
 
-  // Code-based password reset (entered from email, no link click required)
   resetPasswordWithCode: (payload: {
     email: string;
     code: string;
@@ -155,7 +146,6 @@ export const authApi = {
   getProfile: () => request<UserProfile>("/api/profile", { method: "GET" }),
 };
 
-// ─── Types ─────────────────────────────────────────────────────────────────────
 export interface UserProfile {
   id: string;
   email: string;

@@ -1,7 +1,6 @@
 "use client";
 import React, { useState } from "react";
 
-// ─── Alert ────────────────────────────────────────────────────────────────────
 type AlertType = "error" | "success" | "info" | "warning";
 
 export function Alert({
@@ -33,7 +32,6 @@ export function Alert({
   );
 }
 
-// ─── Input ────────────────────────────────────────────────────────────────────
 interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label: string;
   error?: string;
@@ -62,7 +60,6 @@ export function Input({ label, error, id, className = "", ...props }: InputProps
   );
 }
 
-// ─── PasswordInput ────────────────────────────────────────────────────────────
 export function PasswordInput({ label, error, id, ...props }: InputProps) {
   const [show, setShow] = useState(false);
   return (
@@ -94,7 +91,6 @@ export function PasswordInput({ label, error, id, ...props }: InputProps) {
   );
 }
 
-// ─── PasswordStrength ─────────────────────────────────────────────────────────
 export function PasswordStrength({ password }: { password: string }) {
   const checks = [
     { label: "12+ characters", ok: password.length >= 12 },
@@ -149,7 +145,6 @@ export function PasswordStrength({ password }: { password: string }) {
   );
 }
 
-// ─── Button ───────────────────────────────────────────────────────────────────
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   loading?: boolean;
   variant?: "primary" | "secondary" | "ghost";
@@ -206,7 +201,6 @@ export function Button({
   );
 }
 
-// ─── AuthCard ─────────────────────────────────────────────────────────────────
 export function AuthCard({
   title,
   subtitle,
@@ -241,7 +235,6 @@ export function AuthCard({
   );
 }
 
-// ─── OTPInput – 6-box digit input ─────────────────────────────────────────────
 export function OTPInput({
   value,
   onChange,
@@ -310,7 +303,6 @@ export function OTPInput({
   );
 }
 
-// ─── Divider ──────────────────────────────────────────────────────────────────
 export function Divider({ label }: { label?: string }) {
   return (
     <div className="flex items-center gap-3">

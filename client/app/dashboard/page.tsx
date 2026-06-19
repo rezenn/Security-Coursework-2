@@ -1,6 +1,5 @@
 "use client";
-// Dashboard — GyanKosh
-// Protected route: redirects unauthenticated users (OWASP A01:2021)
+
 import { useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";

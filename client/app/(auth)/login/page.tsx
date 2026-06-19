@@ -1,7 +1,5 @@
 "use client";
-// Login page — GyanKosh
-// Security: rate limiting on server, reCAPTCHA v3 (visible badge via layout.tsx),
-// MFA flow via sessionStorage temp handoff (NIST SP 800-63B §5.2.3)
+
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -26,7 +24,6 @@ export default function LoginPage() {
     setError("");
     setLoading(true);
     try {
-      // Show brief captcha-checking state so user sees verification happening
       setCaptchaChecking(true);
       const captchaToken = await getToken("login");
       setCaptchaChecking(false);
@@ -40,8 +37,6 @@ export default function LoginPage() {
           mfaToken: mfaRequired && mfaToken ? mfaToken : undefined,
         });
       } catch (e: unknown) {
-        // The server returns 401 with { error: "MFA_REQUIRED", mfaRequired: true }
-        // Our fetch wrapper throws on non-2xx, so we catch it here and check the body.
         const err = e as {
           error?: string;
           mfaRequired?: boolean;
@@ -50,14 +45,12 @@ export default function LoginPage() {
           status?: number;
         };
         if (err.mfaRequired === true || err.error === "MFA_REQUIRED") {
-          // Stash credentials for the MFA step re-auth
           sessionStorage.setItem("mfaEmail", email);
           sessionStorage.setItem("mfaPassword", password);
           setMfaRequired(true);
           setLoading(false);
           return;
         }
-        // Any other error — surface it
         setError(
           err.error || err.message || "Sign in failed. Please try again.",
         );
