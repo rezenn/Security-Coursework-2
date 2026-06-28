@@ -1,50 +1,32 @@
 import dotenv from "dotenv";
-import fs from "fs";
 import path from "path";
+import fs from "fs";
 
-const candidateEnvPaths = [
+const candidates = [
   path.join(__dirname, "../.env"),
   path.join(__dirname, "../../.env"),
 ];
-
-const envPath = candidateEnvPaths.find((candidate) => fs.existsSync(candidate));
-if (envPath) {
-  dotenv.config({ path: envPath });
-} else {
-  dotenv.config();
-}
+const envPath = candidates.find((p) => fs.existsSync(p));
+dotenv.config({ path: envPath });
 
 const env = process.env.NODE_ENV || "development";
 
-const requiredEnvVars = [
-  "MONGODB_URI",
-  "JWT_ACCESS_SECRET",
-  "JWT_REFRESH_SECRET",
-  "ENCRYPTION_KEY",
-  "COOKIE_SECRET",
-];
-
-requiredEnvVars.forEach((key) => {
-  if (key === "MONGODB_URI") {
-    if (env === "production") {
-      if (!process.env.MONGODB_URI && !process.env.MONGO_URI) {
-        throw new Error(`FATAL: Missing required environment variable: ${key}`);
-      }
-    }
-    return;
-  }
-
-  if (!process.env[key]) {
-    throw new Error(`FATAL: Missing required environment variable: ${key}`);
-  }
-});
-
+// In production, require strong secrets
 if (env === "production") {
-  if ((process.env.JWT_ACCESS_SECRET?.length ?? 0) < 64) {
-    throw new Error(
-      "FATAL: JWT_ACCESS_SECRET must be at least 64 characters in production",
-    );
-  }
+  const required = [
+    "MONGO_URI",
+    "JWT_ACCESS_SECRET",
+    "JWT_REFRESH_SECRET",
+    "ENCRYPTION_KEY",
+    "COOKIE_SECRET",
+    "STRIPE_SECRET_KEY",
+    "STRIPE_WEBHOOK_SECRET",
+  ];
+  required.forEach((k) => {
+    if (!process.env[k]) throw new Error(`FATAL: Missing env var ${k}`);
+  });
+  if ((process.env.JWT_ACCESS_SECRET?.length ?? 0) < 64)
+    throw new Error("FATAL: JWT_ACCESS_SECRET must be ≥64 chars in production");
 }
 
 const config = {
@@ -53,55 +35,53 @@ const config = {
   frontendUrl: process.env.FRONTEND_URL || "http://localhost:3000",
 
   mongodb: {
-    uri:
-      process.env.MONGODB_URI ||
-      process.env.MONGO_URI ||
-      "mongodb://127.0.0.1:27017/gyankosh",
+    uri: process.env.MONGO_URI || "mongodb://127.0.0.1:27017/gyankosh",
   },
 
   jwt: {
-    accessSecret: process.env.JWT_ACCESS_SECRET!,
-    refreshSecret: process.env.JWT_REFRESH_SECRET!,
-    accessExpires:
-      process.env.JWT_ACCESS_EXPIRES ||
-      process.env.JWT_ACCESS_EXPIRES_IN ||
-      "15m",
-    refreshExpires:
-      process.env.JWT_REFRESH_EXPIRES ||
-      process.env.JWT_REFRESH_EXPIRES_IN ||
-      "7d",
+    accessSecret:
+      process.env.JWT_ACCESS_SECRET || "dev_access_secret_min_32_chars_padded",
+    refreshSecret:
+      process.env.JWT_REFRESH_SECRET ||
+      "dev_refresh_secret_min_32_chars_padded",
+    accessExpires: process.env.JWT_ACCESS_EXPIRES_IN || "15m",
+    refreshExpires: process.env.JWT_REFRESH_EXPIRES_IN || "7d",
   },
 
   encryption: {
-    key: process.env.ENCRYPTION_KEY!,
+    key: (process.env.ENCRYPTION_KEY || "dev_encryption_key_32chars_pad00")
+      .padEnd(32, "0")
+      .slice(0, 32),
   },
 
   mfa: {
-    appName: process.env.MFA_APP_NAME || "SecureApp",
+    appName: process.env.APP_NAME || "GyanKosh",
   },
 
   email: {
-    host: process.env.EMAIL_HOST || process.env.SMTP_HOST || "smtp.gmail.com",
-    port: parseInt(
-      process.env.EMAIL_PORT || process.env.SMTP_PORT || "587",
-      10,
-    ),
-    user: process.env.EMAIL_USER || process.env.SMTP_USER || "",
-    pass: process.env.EMAIL_PASS || process.env.SMTP_PASS || "",
-    from: process.env.EMAIL_FROM || "noreply@secureapp.com",
+    host: process.env.SMTP_HOST || "smtp.gmail.com",
+    port: parseInt(process.env.SMTP_PORT || "587", 10),
+    user: process.env.SMTP_USER || "",
+    pass: process.env.SMTP_PASS || "",
+    from: process.env.EMAIL_FROM || "GyanKosh <noreply@gyankosh.com>",
     sendInDevelopment:
       process.env.EMAIL_SEND_IN_DEVELOPMENT?.toLowerCase() === "true",
   },
+
   recaptcha: {
     secret: process.env.RECAPTCHA_SECRET_KEY || "",
-    siteKey: process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || "",
-    enabled: Boolean(process.env.RECAPTCHA_SECRET_KEY),
+    enabled: env === "production" && !!process.env.RECAPTCHA_SECRET_KEY,
+  },
+
+  stripe: {
+    secretKey: process.env.STRIPE_SECRET_KEY || "",
+    webhookSecret: process.env.STRIPE_WEBHOOK_SECRET || "",
   },
 
   rateLimit: {
     windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || "900000", 10),
     max: parseInt(process.env.RATE_LIMIT_MAX || "100", 10),
-    loginMax: parseInt(process.env.LOGIN_RATE_LIMIT_MAX || "5", 10),
+    loginMax: parseInt(process.env.LOGIN_RATE_LIMIT_MAX || "10", 10),
     loginWindowMs: parseInt(
       process.env.LOGIN_RATE_LIMIT_WINDOW_MS || "900000",
       10,
@@ -109,17 +89,21 @@ const config = {
   },
 
   cookie: {
-    secret: process.env.COOKIE_SECRET!,
-    sessionTimeoutMinutes: parseInt(
-      process.env.SESSION_TIMEOUT_MINUTES || "30",
+    secret: process.env.COOKIE_SECRET || "dev_cookie_secret_change_me",
+  },
+
+  lockout: {
+    maxFailedAttempts: parseInt(process.env.MAX_LOGIN_ATTEMPTS || "5", 10),
+    durationMinutes: parseInt(
+      process.env.LOCKOUT_DURATION_MINUTES || "15",
       10,
     ),
   },
 
-  lockout: {
-    maxFailedAttempts: parseInt(process.env.MAX_FAILED_ATTEMPTS || "5", 10),
-    durationMinutes: parseInt(process.env.LOCKOUT_DURATION_MINUTES || "30", 10),
-  },
+  ipAllowlist: (process.env.IP_ALLOWLIST || "127.0.0.1,::1")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean),
 };
 
 export default config;

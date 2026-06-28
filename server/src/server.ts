@@ -1,106 +1,150 @@
-/// <reference path="./types/custom.d.ts" />
+/// <reference path="./types/express/index.d.ts" />
 
-import express from "express";
+import express, { Request, Response, NextFunction } from "express";
 import helmet from "helmet";
 import cors from "cors";
 import hpp from "hpp";
 import mongoSanitize from "express-mongo-sanitize";
-import xssClean from "xss-clean";
 import cookieParser from "cookie-parser";
-import bodyParser from "body-parser";
-import csurf from "csurf";
 import morgan from "morgan";
 import config from "./config/env.config";
 import connectDB from "./config/database.config";
 import logger, { logSecurityEvent } from "./utils/logger.utils";
-import authRoutes from "./routes/auth.routes";
-import profileRoutes from "./routes/profile.routes";
-import transactionRoutes from "./routes/transaction.routes";
 import {
   createGlobalRateLimiter,
   createLoginRateLimiter,
 } from "./middleware/rateLimiter.middleware";
 import { errorHandler } from "./middleware/error.middleware";
+import authRoutes from "./routes/auth.routes";
+import {
+  courseRouter,
+  profileRouter,
+  paymentRouter,
+  adminRouter,
+} from "./routes/index";
 
 const app = express();
 
+// ── Trust proxy (correct IP behind Nginx / Docker) ────────────────────────────
 app.set("trust proxy", 1);
 
-app.use(helmet());
+// ── Security headers (helmet) ─────────────────────────────────────────────────
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", "data:", "https:"],
+        connectSrc: ["'self'"],
+      },
+    },
+    hsts: { maxAge: 31536000, includeSubDomains: true },
+  }),
+);
+
+// ── CORS ──────────────────────────────────────────────────────────────────────
 app.use(
   cors({
     origin: config.frontendUrl,
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
+    allowedHeaders: ["Content-Type", "Authorization", "x-captcha-token"],
   }),
 );
-app.use(hpp());
-app.use(mongoSanitize());
-app.use(xssClean());
-app.use(bodyParser.json({ limit: "15kb" }));
-app.use(bodyParser.urlencoded({ extended: true, limit: "15kb" }));
+
+// ── Stripe webhook needs raw body — mount BEFORE json parser ──────────────────
+// (raw body parser is applied inside the route itself via express.raw)
+
+// ── Body parsers ──────────────────────────────────────────────────────────────
+app.use(express.json({ limit: "15kb" }));
+app.use(express.urlencoded({ extended: true, limit: "15kb" }));
 app.use(cookieParser(config.cookie.secret));
 
+// ── HTTP parameter pollution prevention ──────────────────────────────────────
+app.use(hpp());
+
+// ── NoSQL injection prevention (strips $ and . keys) ─────────────────────────
+app.use(mongoSanitize());
+
+// ── XSS prevention — inline sanitizer (replaces deprecated xss-clean) ────────
+// Recursively escapes < > & " ' in all string values of req.body/query/params
+const escapeHtml = (str: string): string =>
+  str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#x27;");
+
+const sanitizeValue = (val: unknown): unknown => {
+  if (typeof val === "string") return escapeHtml(val);
+  if (Array.isArray(val)) return val.map(sanitizeValue);
+  if (val !== null && typeof val === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(val as Record<string, unknown>)) {
+      out[k] = sanitizeValue(v);
+    }
+    return out;
+  }
+  return val;
+};
+
+app.use((req: Request, _res: Response, next: NextFunction) => {
+  if (req.body) req.body = sanitizeValue(req.body);
+  if (req.query) req.query = sanitizeValue(req.query) as typeof req.query;
+  next();
+});
+
+// ── Request logging ───────────────────────────────────────────────────────────
 app.use(
   morgan("combined", {
-    stream: {
-      write: (message) => logger.info(message.trim()),
-    },
+    stream: { write: (m: string) => logger.info(m.trim()) },
   }),
 );
 
+// ── Rate limiters ─────────────────────────────────────────────────────────────
 app.use(createGlobalRateLimiter());
 app.use("/api/auth/login", createLoginRateLimiter());
 app.use("/api/auth/request-password-reset", createLoginRateLimiter());
+app.use("/api/auth/register", createLoginRateLimiter());
 
-const useCsrf = config.env === "production";
-const csrfProtection = useCsrf
-  ? csurf({
-      cookie: {
-        httpOnly: false,
-        secure: config.env === "production",
-        sameSite: "strict",
-      },
-    })
-  : undefined;
+// ── Routes ────────────────────────────────────────────────────────────────────
+app.use("/api/auth", authRoutes);
+app.use("/api/courses", courseRouter);
+app.use("/api/profile", profileRouter);
+app.use("/api/payments", paymentRouter);
+app.use("/api/admin", adminRouter);
 
-if (csrfProtection) {
-  app.use(csrfProtection);
-  app.use((req, res, next) => {
-    const csrfToken = (req as any).csrfToken?.();
-    res.cookie("XSRF-TOKEN", csrfToken || "", {
-      sameSite: "strict",
-      secure: config.env === "production",
-      httpOnly: false,
-    });
-    next();
-  });
-}
-
-app.get("/api/csrf-token", (req, res) => {
-  const csrfToken = useCsrf ? (req as any).csrfToken?.() : "";
-  res.status(200).json({ csrfToken: csrfToken || "" });
+// ── Health check ──────────────────────────────────────────────────────────────
+app.get("/api/health", (_req: Request, res: Response) => {
+  res.json({ status: "ok", env: config.env, timestamp: new Date().toISOString() });
 });
 
-app.use("/api/auth", authRoutes);
-app.use("/api/profile", profileRoutes);
-app.use("/api/transactions", transactionRoutes);
+// ── 404 ───────────────────────────────────────────────────────────────────────
+app.use((_req: Request, res: Response) => {
+  res.status(404).json({ error: "Route not found" });
+});
 
+// ── Global error handler ──────────────────────────────────────────────────────
 app.use(errorHandler);
 
+// ── Bootstrap ─────────────────────────────────────────────────────────────────
 const start = async (): Promise<void> => {
   await connectDB();
-
   app.listen(config.port, () => {
-    logger.info(`Server listening on port ${config.port}`);
+    logger.info(
+      `GyanKosh server running on port ${config.port} [${config.env}]`,
+    );
     logSecurityEvent("server_started", null, "system", {
-      env: config.env,
       port: config.port,
+      env: config.env,
     });
   });
 };
 
-start().catch((error) => {
-  logger.error("Failed to start server", { error });
+start().catch((err) => {
+  logger.error("Failed to start server", { err });
   process.exit(1);
 });

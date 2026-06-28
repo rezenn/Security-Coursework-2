@@ -1,19 +1,15 @@
 {
-  "name": "gyan-kosh-server",
+  "name": "gyankosh-server",
   "version": "1.0.0",
-  "description": "Secure web application with MFA, RBAC, logging, rate limiting, and penetration testing readiness",
+  "description": "GyanKosh — Secure course-selling platform backend",
   "main": "dist/server.js",
   "scripts": {
-    "dev": "nodemon --exec ts-node src/server.ts",
+    "dev": "nodemon",
     "build": "tsc",
     "start": "node dist/server.js",
-    "lint": "eslint src/**/*.ts",
     "typecheck": "tsc --noEmit",
     "test": "jest",
-    "test:watch": "jest --watch",
-    "security:audit": "npm audit --audit-level=high",
-    "docker:build": "docker build -t gyan-kosh-server .",
-    "docker:run": "docker run -p 5000:5000 -e NODE_ENV=production gyan-kosh-server"
+    "security:audit": "npm audit --audit-level=high"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -21,7 +17,6 @@
     "compression": "^1.7.4",
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
-    "csurf": "^1.11.0",
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
     "express-mongo-sanitize": "^2.2.0",
@@ -31,23 +26,18 @@
     "helmet": "^7.1.0",
     "hpp": "^0.2.3",
     "jsonwebtoken": "^9.0.2",
-    "mongodb-memory-server": "^11.2.0",
     "mongoose": "^8.0.3",
     "morgan": "^1.10.0",
     "ms": "^2.1.3",
     "multer": "^1.4.5-lts.1",
     "nodemailer": "^6.9.7",
     "otplib": "^12.0.1",
-    "passport": "^0.7.0",
-    "passport-google-oauth20": "^2.0.0",
     "qrcode": "^1.5.3",
-    "rate-limiter-flexible": "^4.0.1",
     "speakeasy": "^2.0.0",
+    "stripe": "^14.0.0",
     "uuid": "^9.0.0",
     "winston": "^3.11.0",
     "winston-daily-rotate-file": "^4.7.1",
-    "xss": "^1.0.14",
-    "xss-clean": "^0.1.4",
     "zxcvbn": "^4.4.2"
   },
   "devDependencies": {
@@ -55,7 +45,6 @@
     "@types/compression": "^1.7.5",
     "@types/cookie-parser": "^1.4.6",
     "@types/cors": "^2.8.17",
-    "@types/csurf": "^1.11.5",
     "@types/express": "^4.17.21",
     "@types/hpp": "^0.2.6",
     "@types/jest": "^29.5.11",
@@ -64,8 +53,6 @@
     "@types/multer": "^1.4.11",
     "@types/node": "^20.10.4",
     "@types/nodemailer": "^6.4.14",
-    "@types/passport": "^1.0.16",
-    "@types/passport-google-oauth20": "^2.0.14",
     "@types/qrcode": "^1.5.5",
     "@types/speakeasy": "^2.0.10",
     "@types/uuid": "^9.0.7",
@@ -78,22 +65,12 @@
     "supertest": "^6.3.3",
     "ts-jest": "^29.1.1",
     "ts-node": "^10.9.2",
-    "ts-node-dev": "^2.0.0",
     "typescript": "^5.3.3"
   },
   "engines": {
     "node": ">=20.x",
     "npm": ">=10.x"
   },
-  "keywords": [
-    "security",
-    "mfa",
-    "rbac",
-    "rate-limiting",
-    "penetration-testing",
-    "owasp",
-    "secure-by-design"
-  ],
   "author": "Rijen Khadgi",
   "license": "MIT",
   "private": true

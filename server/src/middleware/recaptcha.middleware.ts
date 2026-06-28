@@ -6,21 +6,16 @@ export const verifyRecaptcha = async (
   res: Response,
   next: NextFunction,
 ): Promise<void> => {
+  // Skip in development or if not configured
+  if (!config.recaptcha.enabled) return next();
+
   const token =
-    (req.body && req.body.captchaToken) ||
+    req.body?.captchaToken ||
     req.headers["x-captcha-token"] ||
     req.headers["x-recaptcha-token"];
 
-  if (config.env === "development" && token === "test-token") {
-    return next();
-  }
-
-  if (!config.recaptcha.enabled) {
-    return next();
-  }
-
   if (!token || typeof token !== "string") {
-    res.status(400).json({ error: "Captcha token is required" });
+    res.status(400).json({ error: "Captcha verification required" });
     return;
   }
 
@@ -30,32 +25,18 @@ export const verifyRecaptcha = async (
     payload.append("response", token);
     payload.append("remoteip", req.ip || "");
 
-    const response = await fetch(
-      "https://www.google.com/recaptcha/api/siteverify",
-      {
-        method: "POST",
-        body: payload,
-      },
-    );
+    const r = await fetch("https://www.google.com/recaptcha/api/siteverify", {
+      method: "POST",
+      body: payload,
+    });
+    const result = (await r.json()) as { success: boolean; score?: number };
 
-    const result = (await response.json()) as {
-      success: boolean;
-      score?: number;
-      [key: string]: unknown;
-    };
-
-    if (!result.success) {
+    if (!result.success || (typeof result.score === "number" && result.score < 0.5)) {
       res.status(400).json({ error: "Captcha verification failed" });
       return;
     }
-
-    if (typeof result.score === "number" && result.score < 0.5) {
-      res.status(400).json({ error: "Captcha score too low" });
-      return;
-    }
-
     next();
-  } catch (error) {
-    res.status(500).json({ error: "Captcha verification failed" });
+  } catch {
+    res.status(500).json({ error: "Captcha service unavailable" });
   }
 };

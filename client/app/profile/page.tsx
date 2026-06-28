@@ -1,135 +1,213 @@
 "use client";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { useRequireAuth } from "@/hooks/useRequireAuth";
+import { profileApi } from "@/lib/api";
+import { PageLoader, ErrorAlert, SuccessAlert, Avatar, RoleBadge } from "@/components/shared";
+import { User, Key, Download, ShieldCheck, Calendar } from "lucide-react";
+import { toast } from "sonner";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useAuth } from "../hooks/useAuth";
+import { PasswordStrengthMeter } from "@/components/ui/PasswordStrengthMeter";
+import { validatePasswordPolicy } from "@/lib/utils/password";
 
 export default function ProfilePage() {
-  const { user, loading, logout } = useAuth();
-  const router = useRouter();
+  const { user: authUser, loading: authLoading } = useRequireAuth();
+  const [profile, setProfile] = useState<any>(null);
+  const [fetching, setFetching] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+
+  // Profile form state
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [bio, setBio] = useState("");
+
+  // Password form
+  const [currentPw, setCurrentPw] = useState("");
+  const [newPw, setNewPw] = useState("");
+  const [confirmPw, setConfirmPw] = useState("");
+  const [pwError, setPwError] = useState("");
+  const [pwSuccess, setPwSuccess] = useState("");
+  const [pwSaving, setPwSaving] = useState(false);
 
   useEffect(() => {
-    if (!loading && !user) router.replace("/login");
-  }, [user, loading, router]);
+    if (authLoading) return;
+    profileApi.get().then((d) => {
+      setProfile(d.user);
+      setFirstName(d.user.profile?.firstName || "");
+      setLastName(d.user.profile?.lastName || "");
+      setBio(d.user.profile?.bio || "");
+    }).catch(console.error).finally(() => setFetching(false));
+  }, [authLoading]);
 
-  if (loading || !user) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
+  const handleUpdateProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    setError("");
+    setSuccess("");
+    try {
+      await profileApi.update({ firstName, lastName, bio });
+      setSuccess("Profile updated successfully.");
+      toast.success("Profile saved!");
+    } catch (err: any) {
+      setError(err?.response?.data?.error || "Update failed");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPw !== confirmPw) { setPwError("Passwords do not match"); return; }
+    const policyErrors = validatePasswordPolicy(newPw);
+    if (policyErrors.length > 0) { setPwError(policyErrors.join(", ")); return; }
+    setPwSaving(true);
+    setPwError("");
+    setPwSuccess("");
+    try {
+      await profileApi.changePassword(currentPw, newPw);
+      setPwSuccess("Password changed successfully.");
+      setCurrentPw(""); setNewPw(""); setConfirmPw("");
+      toast.success("Password changed!");
+    } catch (err: any) {
+      setPwError(err?.response?.data?.error || "Password change failed");
+    } finally {
+      setPwSaving(false);
+    }
+  };
+
+  const handleExport = async () => {
+    try {
+      const res = await profileApi.export();
+      const url = URL.createObjectURL(new Blob([JSON.stringify(res.data, null, 2)], { type: "application/json" }));
+      const a = document.createElement("a");
+      a.href = url; a.download = "gyankosh-profile.json"; a.click();
+      URL.revokeObjectURL(url);
+      toast.success("Profile exported!");
+    } catch {
+      toast.error("Export failed");
+    }
+  };
+
+  if (authLoading || fetching) return <PageLoader />;
+
+  const pwExpiry = profile?.passwordExpiresAt ? new Date(profile.passwordExpiresAt) : null;
+  const pwDaysLeft = pwExpiry ? Math.ceil((pwExpiry.getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : null;
+
+  return (
+    <div className="max-w-2xl mx-auto space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-white">My Profile</h1>
+        <RoleBadge role={authUser?.role || "user"} />
       </div>
-    );
-  }
 
-  async function handleLogout() {
-    await logout();
-    router.push("/login");
-  }
-
-  return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Navbar */}
-      <header className="border-b border-gray-200 bg-white px-6 py-4">
-        <div className="mx-auto flex max-w-2xl items-center justify-between">
-          <Link href="/dashboard" className="flex items-center gap-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-600 text-white text-sm font-bold">
-              G
-            </div>
-            <span className="font-semibold text-gray-900">GyanKosh</span>
-          </Link>
-          <button
-            onClick={handleLogout}
-            className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
-          >
-            Sign out
-          </button>
+      {/* Profile info card */}
+      <div className="card">
+        <div className="flex items-center gap-4 mb-6">
+          <Avatar name={profile?.username || "U"} size="lg" />
+          <div>
+            <p className="text-lg font-semibold text-white">{profile?.username}</p>
+            <p className="text-slate-400 text-sm">{profile?.email}</p>
+            {profile?.mfa?.enabled && (
+              <div className="flex items-center gap-1 mt-1 text-xs text-green-400">
+                <ShieldCheck size={12} /> MFA enabled
+              </div>
+            )}
+          </div>
         </div>
-      </header>
 
-      <main className="mx-auto max-w-2xl px-6 py-10">
-        <h1 className="text-2xl font-bold text-gray-900">Profile</h1>
+        {/* Password expiry warning */}
+        {pwDaysLeft !== null && pwDaysLeft <= 14 && (
+          <div className={`mb-4 rounded-lg px-4 py-3 text-sm border ${pwDaysLeft <= 3 ? "bg-red-500/10 border-red-500/30 text-red-400" : "bg-yellow-500/10 border-yellow-500/30 text-yellow-400"}`}>
+            <Calendar size={14} className="inline mr-1.5" />
+            {pwDaysLeft <= 0 ? "Your password has expired. Please change it now." : `Password expires in ${pwDaysLeft} days.`}
+          </div>
+        )}
 
-        {/* Account Info */}
-        <section className="mt-6 rounded-xl border border-gray-200 bg-white p-6">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
-            Account information
-          </h2>
-          <dl className="mt-4 space-y-3">
-            <Row label="Username" value={user.username} />
-            <Row label="Email" value={user.email} />
-            {/* <Row
-              label="Email verified"
-              value={
-                user.emailVerified ? (
-                  <span className="text-green-600 font-medium">Verified ✓</span>
-                ) : (
-                  <span className="text-red-600 font-medium">
-                    Not verified —{" "}
-                    <Link href="/verify" className="underline">
-                      Verify now
-                    </Link>
-                  </span>
-                )
-              }
-            /> */}
-            {user.createdAt && (
-              <Row
-                label="Member since"
-                value={new Date(user.createdAt).toLocaleDateString()}
-              />
-            )}
-          </dl>
-        </section>
+        {error && <div className="mb-4"><ErrorAlert message={error} /></div>}
+        {success && <div className="mb-4"><SuccessAlert message={success} /></div>}
 
-        {/* Security */}
-        <section className="mt-5 rounded-xl border border-gray-200 bg-white p-6">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
-            Security
-          </h2>
-
-          <div className="mt-4 flex items-center justify-between rounded-lg bg-gray-50 px-4 py-3">
+        <form onSubmit={handleUpdateProfile} className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
             <div>
-              <p className="text-sm font-medium text-gray-800">
-                Two-factor authentication
-              </p>
-              <p className="text-xs text-gray-500 mt-0.5">
-                {user.mfaEnabled
-                  ? "Your account is protected with an authenticator app."
-                  : "Add an extra layer of protection to your account."}
-              </p>
+              <label className="label">First Name</label>
+              <input className="input" value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="First name" maxLength={50} />
             </div>
-            {user.mfaEnabled ? (
-              <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
-                Enabled
-              </span>
-            ) : (
-              <Link
-                href="/mfa-setup"
-                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
-              >
-                Enable MFA
-              </Link>
-            )}
+            <div>
+              <label className="label">Last Name</label>
+              <input className="input" value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="Last name" maxLength={50} />
+            </div>
           </div>
-
-          <div className="mt-3">
-            <Link
-              href="/request-password-reset"
-              className="text-sm text-blue-600 hover:underline"
-            >
-              Change password →
-            </Link>
+          <div>
+            <label className="label">Bio</label>
+            <textarea
+              className="input resize-none"
+              rows={3}
+              value={bio}
+              onChange={(e) => setBio(e.target.value)}
+              placeholder="Tell us about yourself..."
+              maxLength={500}
+            />
+            <p className="text-xs text-slate-500 mt-1">{bio.length}/500</p>
           </div>
-        </section>
-      </main>
-    </div>
-  );
-}
+          <button type="submit" disabled={saving} className="btn-primary flex items-center gap-2">
+            <User size={16} /> {saving ? "Saving..." : "Save Profile"}
+          </button>
+        </form>
+      </div>
 
-function Row({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <div className="flex items-baseline justify-between border-b border-gray-100 pb-3 last:border-0 last:pb-0">
-      <dt className="text-sm text-gray-500">{label}</dt>
-      <dd className="text-sm text-gray-900">{value}</dd>
+      {/* Change password */}
+      <div className="card">
+        <h2 className="text-base font-semibold text-white mb-4 flex items-center gap-2">
+          <Key size={16} className="text-blue-400" /> Change Password
+        </h2>
+
+        {pwError && <div className="mb-4"><ErrorAlert message={pwError} /></div>}
+        {pwSuccess && <div className="mb-4"><SuccessAlert message={pwSuccess} /></div>}
+
+        <form onSubmit={handleChangePassword} className="space-y-4">
+          <div>
+            <label className="label">Current Password</label>
+            <input type="password" className="input" value={currentPw} onChange={(e) => setCurrentPw(e.target.value)} placeholder="Current password" autoComplete="current-password" />
+          </div>
+          <div>
+            <label className="label">New Password</label>
+            <input type="password" className="input" value={newPw} onChange={(e) => setNewPw(e.target.value)} placeholder="New password (min 12 chars)" autoComplete="new-password" />
+            <PasswordStrengthMeter password={newPw} />
+          </div>
+          <div>
+            <label className="label">Confirm New Password</label>
+            <input type="password" className="input" value={confirmPw} onChange={(e) => setConfirmPw(e.target.value)} placeholder="Repeat new password" autoComplete="new-password" />
+          </div>
+          <button type="submit" disabled={pwSaving} className="btn-primary flex items-center gap-2">
+            <Key size={16} /> {pwSaving ? "Changing..." : "Change Password"}
+          </button>
+        </form>
+      </div>
+
+      {/* Security & MFA */}
+      {!profile?.mfa?.enabled && (
+        <div className="card border-yellow-500/30">
+          <h2 className="text-base font-semibold text-white mb-2 flex items-center gap-2">
+            <ShieldCheck size={16} className="text-yellow-400" /> Two-Factor Authentication
+          </h2>
+          <p className="text-slate-400 text-sm mb-4">Add an extra layer of security to your account.</p>
+          <Link href="/mfa-setup" className="btn-primary inline-flex items-center gap-2">
+            <ShieldCheck size={16} /> Enable MFA
+          </Link>
+        </div>
+      )}
+
+      {/* Data export */}
+      <div className="card">
+        <h2 className="text-base font-semibold text-white mb-2 flex items-center gap-2">
+          <Download size={16} className="text-blue-400" /> Data Export
+        </h2>
+        <p className="text-slate-400 text-sm mb-4">Download all data associated with your account (GDPR-compliant).</p>
+        <button onClick={handleExport} className="btn-secondary flex items-center gap-2">
+          <Download size={16} /> Export My Data
+        </button>
+      </div>
     </div>
   );
 }

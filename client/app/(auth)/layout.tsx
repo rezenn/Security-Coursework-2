@@ -1,22 +1,20 @@
-"use client";
-import localFont from "next/font/local";
+import { BookOpen } from "lucide-react";
+import Link from "next/link";
 
-const poppins = localFont({
-  src: [{ path: "../assets/fonts/Poppins/Poppins-Regular.woff2" }],
-  variable: "--font-poppins",
-  display: "swap",
-});
-
-export default function Layout({ children }: { children: React.ReactNode }) {
+export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
-    <section
-      className={`min-h-screen w-screen flex items-center justify-center ${poppins.className}`}
-      style={{
-        background:
-          "linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 50%, #16213e 100%)",
-      }}
-    >
-      {children}
-    </section>
+    <div className="min-h-screen bg-slate-900 flex flex-col">
+      <div className="p-6">
+        <Link href="/" className="flex items-center gap-2 w-fit">
+          <BookOpen className="text-blue-500" size={22} />
+          <span className="text-lg font-bold text-white">GyanKosh</span>
+        </Link>
+      </div>
+      <div className="flex-1 flex items-center justify-center px-4 pb-12">
+        <div className="w-full max-w-md">
+          {children}
+        </div>
+      </div>
+    </div>
   );
 }

@@ -4,29 +4,24 @@ import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import config from "../config/env.config";
 
-const ENCRYPTION_KEY = Buffer.from(
-  config.encryption.key.padEnd(32, "0").slice(0, 32),
-);
+const KEY = Buffer.from(config.encryption.key);
 
 export const encryptSecret = (plaintext: string): string => {
   const iv = crypto.randomBytes(16);
-  const cipher = crypto.createCipheriv("aes-256-gcm", ENCRYPTION_KEY, iv);
-  const encrypted = Buffer.concat([
-    cipher.update(plaintext, "utf8"),
-    cipher.final(),
-  ]);
-  const authTag = cipher.getAuthTag();
-  return `${iv.toString("hex")}:${authTag.toString("hex")}:${encrypted.toString("hex")}`;
+  const cipher = crypto.createCipheriv("aes-256-gcm", KEY, iv);
+  const encrypted = Buffer.concat([cipher.update(plaintext, "utf8"), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return `${iv.toString("hex")}:${tag.toString("hex")}:${encrypted.toString("hex")}`;
 };
 
-export const decryptSecret = (encryptedData: string): string => {
-  const [ivHex, authTagHex, encryptedHex] = encryptedData.split(":");
+export const decryptSecret = (data: string): string => {
+  const [ivHex, tagHex, encHex] = data.split(":");
   const iv = Buffer.from(ivHex, "hex");
-  const authTag = Buffer.from(authTagHex, "hex");
-  const encrypted = Buffer.from(encryptedHex, "hex");
-  const decipher = crypto.createDecipheriv("aes-256-gcm", ENCRYPTION_KEY, iv);
-  decipher.setAuthTag(authTag);
-  return decipher.update(encrypted) + decipher.final("utf8");
+  const tag = Buffer.from(tagHex, "hex");
+  const enc = Buffer.from(encHex, "hex");
+  const decipher = crypto.createDecipheriv("aes-256-gcm", KEY, iv);
+  decipher.setAuthTag(tag);
+  return decipher.update(enc).toString("utf8") + decipher.final("utf8");
 };
 
 export interface MFASetupResult {
@@ -37,45 +32,30 @@ export interface MFASetupResult {
   hashedBackupCodes: string[];
 }
 
-export const generateMFASetup = async (
-  email: string,
-): Promise<MFASetupResult> => {
+export const generateMFASetup = async (email: string): Promise<MFASetupResult> => {
   const secretObj = speakeasy.generateSecret({
     name: `${config.mfa.appName} (${email})`,
     issuer: config.mfa.appName,
     length: 32,
   });
-
-  const plainSecret = secretObj.base32;
-  const encryptedSecret = encryptSecret(plainSecret);
-  const otpauthUrl = secretObj.otpauth_url!;
-
-  const qrCodeDataUrl = await QRCode.toDataURL(otpauthUrl);
+  const encryptedSecret = encryptSecret(secretObj.base32);
+  const qrCodeDataUrl = await QRCode.toDataURL(secretObj.otpauth_url!);
 
   const backupCodes: string[] = [];
   const hashedBackupCodes: string[] = [];
-
   for (let i = 0; i < 10; i++) {
     const code = `${crypto.randomBytes(2).toString("hex").toUpperCase()}-${crypto.randomBytes(2).toString("hex").toUpperCase()}`;
     backupCodes.push(code);
-    const hashed = await bcrypt.hash(code, 10);
-    hashedBackupCodes.push(hashed);
+    hashedBackupCodes.push(await bcrypt.hash(code, 10));
   }
-
-  return {
-    secret: encryptedSecret,
-    otpauthUrl,
-    qrCodeDataUrl,
-    backupCodes,
-    hashedBackupCodes,
-  };
+  return { secret: encryptedSecret, otpauthUrl: secretObj.otpauth_url!, qrCodeDataUrl, backupCodes, hashedBackupCodes };
 };
 
 export const verifyTOTP = (encryptedSecret: string, token: string): boolean => {
   try {
-    const plainSecret = decryptSecret(encryptedSecret);
+    const plain = decryptSecret(encryptedSecret);
     return speakeasy.totp.verify({
-      secret: plainSecret,
+      secret: plain,
       encoding: "base32",
       token: token.replace(/\s/g, ""),
       window: 1,
@@ -86,19 +66,13 @@ export const verifyTOTP = (encryptedSecret: string, token: string): boolean => {
 };
 
 export const verifyBackupCode = async (
-  hashedBackupCodes: string[],
-  inputCode: string | undefined,
+  hashed: string[],
+  input: string | undefined,
 ): Promise<number> => {
-  if (!inputCode) {
-    return -1;
+  if (!input) return -1;
+  const norm = input.trim().toUpperCase();
+  for (let i = 0; i < hashed.length; i++) {
+    if (await bcrypt.compare(norm, hashed[i])) return i;
   }
-
-  const normalizedCode = inputCode.trim().toUpperCase();
-
-  for (let i = 0; i < hashedBackupCodes.length; i++) {
-    const match = await bcrypt.compare(normalizedCode, hashedBackupCodes[i]);
-    if (match) return i;
-  }
-
   return -1;
 };

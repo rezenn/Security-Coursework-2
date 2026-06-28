@@ -1,15 +1,17 @@
 import rateLimit from "express-rate-limit";
 import config from "../config/env.config";
 
+const isAllowedIp = (ip: string): boolean =>
+  config.ipAllowlist.some((allowed) => ip === allowed || ip === `::ffff:${allowed}`);
+
 export const createGlobalRateLimiter = () =>
   rateLimit({
     windowMs: config.rateLimit.windowMs,
     max: config.rateLimit.max,
     standardHeaders: true,
     legacyHeaders: false,
-    message: {
-      error: "Too many requests. Please try again later.",
-    },
+    skip: (req) => isAllowedIp(req.ip || ""),
+    message: { error: "Too many requests. Please try again later." },
   });
 
 export const createLoginRateLimiter = () =>
@@ -19,18 +21,18 @@ export const createLoginRateLimiter = () =>
     standardHeaders: true,
     legacyHeaders: false,
     keyGenerator: (req) => req.ip || "unknown",
-    skip: (req) => {
-
-      if (config.env === "development") {
-        const ip = req.ip || "";
-        if (ip === "127.0.0.1" || ip === "::1" || ip === "::ffff:127.0.0.1") {
-          return true;
-        }
-      }
-      return false;
-    },
+    skip: (req) => config.env === "development" && isAllowedIp(req.ip || ""),
     message: {
-      error:
-        "Too many authentication attempts. Please wait 15 minutes and try again.",
+      error: `Too many authentication attempts. Please wait ${config.rateLimit.loginWindowMs / 60000} minutes and try again.`,
     },
+  });
+
+export const createPaymentRateLimiter = () =>
+  rateLimit({
+    windowMs: 60 * 60 * 1000, // 1 hour
+    max: 10,
+    standardHeaders: true,
+    legacyHeaders: false,
+    keyGenerator: (req) => req.ip || "unknown",
+    message: { error: "Too many payment attempts. Please try again later." },
   });

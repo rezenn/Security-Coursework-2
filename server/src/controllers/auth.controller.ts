@@ -21,13 +21,15 @@ import {
 } from "../services/mfa.service";
 import { logSecurityEvent } from "../utils/logger.utils";
 
-const ACCESS_TOKEN_DURATION = config.jwt.accessExpires;
-const REFRESH_TOKEN_DURATION = config.jwt.refreshExpires;
+const ip = (req: Request) => req.ip || "unknown";
+const ua = (req: Request) =>
+  Array.isArray(req.headers["user-agent"])
+    ? req.headers["user-agent"][0]
+    : req.headers["user-agent"] || "unknown";
 
-const createAuthCookies = (res: Response, refreshToken: string): void => {
-  const maxAge =
-    getTokenExpiryDate(REFRESH_TOKEN_DURATION).getTime() - Date.now();
-  res.cookie("refreshToken", refreshToken, {
+const setRefreshCookie = (res: Response, token: string) => {
+  const maxAge = getTokenExpiryDate(config.jwt.refreshExpires).getTime() - Date.now();
+  res.cookie("refreshToken", token, {
     httpOnly: true,
     secure: config.env === "production",
     sameSite: "strict",
@@ -35,71 +37,23 @@ const createAuthCookies = (res: Response, refreshToken: string): void => {
   });
 };
 
-const getSafeIp = (req: Request): string => req.ip || "unknown";
-const getSafeUserAgent = (req: Request): string =>
-  Array.isArray(req.headers["user-agent"])
-    ? req.headers["user-agent"][0]
-    : req.headers["user-agent"] || "unknown";
-
-const sendSecurityLoginAlert = async (
-  email: string,
-  username: string,
-  ip: string,
-  userAgent: string,
-): Promise<void> => {
-  await sendSecurityAlertEmail(email, username, "new_login", {
-    ip,
-    userAgent,
-    timestamp: new Date().toISOString(),
-  });
-};
-
-const createSessionRecord = async (
-  user: any,
-  refreshToken: string,
-  ip: string,
-  userAgent: string,
-) => {
-  user.activeRefreshTokens = user.activeRefreshTokens || [];
-  user.activeRefreshTokens.push({
-    tokenHash: hashToken(refreshToken),
-    userAgent,
-    ip,
-    expiresAt: getTokenExpiryDate(REFRESH_TOKEN_DURATION),
-  });
-  await user.save({ validateBeforeSave: false });
-};
-
+// POST /api/auth/register
 export const register = async (req: Request, res: Response): Promise<void> => {
   const { email, password } = req.body;
-
   const username = (req.body.username as string)?.trim().replace(/\s+/g, "_");
 
   if (!username || !/^[a-zA-Z0-9_-]+$/.test(username)) {
-    res.status(400).json({
-      error:
-        "Username can only contain letters, numbers, hyphens, and underscores (no spaces).",
-    });
+    res.status(400).json({ error: "Username can only contain letters, numbers, hyphens, underscores" });
     return;
   }
 
-  const passwordPolicy = validatePasswordPolicy(password);
-
-  if (!passwordPolicy.valid) {
-    res.status(400).json({
-      error: "Password does not meet security requirements",
-      details: {
-        policy: passwordPolicy.errors,
-      },
-    });
+  const policy = validatePasswordPolicy(password);
+  if (!policy.valid) {
+    res.status(400).json({ error: "Password does not meet requirements", details: policy.errors });
     return;
   }
 
-  const existingUser = await User.findOne({
-    $or: [{ email }, { username }],
-  });
-
-  if (existingUser) {
+  if (await User.findOne({ $or: [{ email }, { username }] })) {
     res.status(409).json({ error: "Email or username already exists" });
     return;
   }
@@ -108,61 +62,38 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     const user = new User({ email, username, password });
     const verification = user.generateEmailVerificationToken();
     await user.save();
-
-    user.passwordHistory.push({ hash: user.password, changedAt: new Date() });
-    await user.save({ validateBeforeSave: false });
-
-    await sendVerificationEmail(
-      email,
-      username,
-      verification.token,
-      verification.code,
-    );
-    logSecurityEvent(
-      "user_registered",
-      user._id.toHexString(),
-      getSafeIp(req),
-      {
-        email,
-        username,
-      },
-    );
-
-    res.status(201).json({
-      message:
-        "Registration successful. Verify your email address before logging in.",
+    // Save initial password to history
+    await User.findByIdAndUpdate(user._id, {
+      $push: { passwordHistory: { hash: user.password, changedAt: new Date() } },
     });
+    await sendVerificationEmail(email, username, verification.token, verification.code);
+    logSecurityEvent("user_registered", user._id.toHexString(), ip(req), { email, username });
+    res.status(201).json({ message: "Registration successful. Check your email to verify your account." });
   } catch (err: any) {
     if (err.name === "ValidationError") {
-      const messages = Object.values(err.errors as Record<string, any>).map(
-        (e: any) => e.message,
-      );
-      res.status(400).json({ error: messages.join(" ") });
+      const msgs = Object.values(err.errors as Record<string, any>).map((e: any) => e.message);
+      res.status(400).json({ error: msgs.join(". ") });
       return;
     }
     throw err;
   }
 };
 
-export const verifyEmail = async (
-  req: Request,
-  res: Response,
-): Promise<void> => {
+// POST /api/auth/verify-email
+export const verifyEmail = async (req: Request, res: Response): Promise<void> => {
   const { token } = req.params;
   const { email, code } = req.body;
 
   let user;
   if (token) {
-    const hashed = hashToken(token);
     user = await User.findOne({
-      emailVerificationToken: hashed,
+      emailVerificationToken: hashToken(token),
       emailVerificationExpires: { $gt: new Date() },
     });
   } else if (email && code) {
-    const hashedCode = hashToken(code);
     user = await User.findOne({
       email,
-      emailVerificationCode: hashedCode,
+      emailVerificationCode: hashToken(code),
       emailVerificationCodeExpires: { $gt: new Date() },
     });
   } else {
@@ -171,9 +102,7 @@ export const verifyEmail = async (
   }
 
   if (!user) {
-    res
-      .status(400)
-      .json({ error: "Invalid or expired email verification token or code" });
+    res.status(400).json({ error: "Invalid or expired verification token" });
     return;
   }
 
@@ -184,14 +113,14 @@ export const verifyEmail = async (
   user.emailVerificationCodeExpires = null;
   await user.save({ validateBeforeSave: false });
 
-  logSecurityEvent("email_verified", user._id.toHexString(), getSafeIp(req), {
-    email: user.email,
-  });
-  res.status(200).json({ message: "Email successfully verified." });
+  logSecurityEvent("email_verified", user._id.toHexString(), ip(req), { email: user.email });
+  res.status(200).json({ message: "Email verified successfully." });
 };
 
+// POST /api/auth/login
 export const login = async (req: Request, res: Response): Promise<void> => {
   const { email, password, mfaToken } = req.body;
+
   const user = await User.findOne({ email }).select(
     "+password +mfa.secret +mfa.backupCodes +failedLoginAttempts +lockedUntil +activeRefreshTokens",
   );
@@ -202,59 +131,39 @@ export const login = async (req: Request, res: Response): Promise<void> => {
   }
 
   if (user.isLocked()) {
-    res.status(423).json({
-      error: "Account locked due to repeated failed login attempts",
-    });
+    logSecurityEvent("login_blocked_locked", user._id.toHexString(), ip(req), { email });
+    res.status(423).json({ error: "Account locked due to repeated failed attempts. Try again later." });
     return;
   }
 
   if (!user.isActive) {
-    res.status(403).json({ error: "Account is disabled" });
+    res.status(403).json({ error: "Account is disabled. Contact support." });
     return;
   }
 
   if (!user.isEmailVerified) {
-    res
-      .status(403)
-      .json({ error: "Please verify your email before logging in" });
+    res.status(403).json({ error: "Please verify your email before logging in." });
     return;
   }
 
-  const passwordMatches = await user.comparePassword(password);
-  if (!passwordMatches) {
+  if (!await user.comparePassword(password)) {
     await user.incrementFailedAttempts();
-    logSecurityEvent("login_failed", user._id.toHexString(), getSafeIp(req), {
-      email,
-      failedAttempts: user.failedLoginAttempts,
-    });
+    logSecurityEvent("login_failed", user._id.toHexString(), ip(req), { email, attempts: user.failedLoginAttempts });
     res.status(401).json({ error: "Invalid email or password" });
     return;
   }
 
+  // MFA check
   if (user.mfa.enabled) {
     if (!mfaToken) {
-      const sessionId = hashToken(`${user._id}-${Date.now()}`);
-      const tempToken = generateAccessToken(
-        user._id.toHexString(),
-        user.email,
-        user.role,
-        sessionId,
-        "2m",
-      );
-
-      res.status(401).json({
-        error: "MFA_REQUIRED",
-        message: "Multi-factor authentication is required",
-        tempToken,
-        mfaRequired: true,
-      });
+      const tempToken = generateAccessToken(user._id.toHexString(), user.email, user.role, hashToken(`${user._id}-${Date.now()}`), "3m");
+      res.status(200).json({ mfaRequired: true, tempToken });
       return;
     }
-
-    const verified =
+    const valid =
       verifyTOTP(user.mfa.secret!, mfaToken) ||
       (await verifyBackupCode(user.mfa.backupCodes, mfaToken)) >= 0;
-    if (!verified) {
+    if (!valid) {
       res.status(401).json({ error: "Invalid MFA token" });
       return;
     }
@@ -262,36 +171,33 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 
   await user.resetFailedAttempts();
   user.lastLoginAt = new Date();
-  user.lastLoginIp = getSafeIp(req);
+  user.lastLoginIp = ip(req);
   await user.save({ validateBeforeSave: false });
 
   const sessionId = hashToken(`${user._id}-${Date.now()}`);
-  const accessToken = generateAccessToken(
-    user._id.toHexString(),
-    user.email,
-    user.role,
-    sessionId,
-  );
+  const accessToken = generateAccessToken(user._id.toHexString(), user.email, user.role, sessionId);
   const refreshToken = generateRefreshToken(user._id.toHexString(), sessionId);
-  const userAgent = getSafeUserAgent(req);
-  await createSessionRecord(user, refreshToken, getSafeIp(req), userAgent);
-  createAuthCookies(res, refreshToken);
-  await sendSecurityLoginAlert(
-    user.email,
-    user.username,
-    getSafeIp(req),
-    userAgent,
-  );
 
-  logSecurityEvent("login_success", user._id.toHexString(), getSafeIp(req), {
-    email,
-    role: user.role,
+  user.activeRefreshTokens = user.activeRefreshTokens || [];
+  user.activeRefreshTokens.push({
+    tokenHash: hashToken(refreshToken),
+    userAgent: ua(req),
+    ip: ip(req),
+    createdAt: new Date(),
+    expiresAt: getTokenExpiryDate(config.jwt.refreshExpires),
   });
+  await user.save({ validateBeforeSave: false });
 
+  setRefreshCookie(res, refreshToken);
+  sendSecurityAlertEmail(user.email, user.username, "new_login", { ip: ip(req), userAgent: ua(req), timestamp: new Date().toISOString() });
+
+  logSecurityEvent("login_success", user._id.toHexString(), ip(req), { email, role: user.role });
+
+  // Return role so frontend can redirect appropriately
   res.status(200).json({
     message: "Login successful",
     accessToken,
-    expiresIn: ACCESS_TOKEN_DURATION,
+    expiresIn: config.jwt.accessExpires,
     user: {
       id: user._id,
       email: user.email,
@@ -299,166 +205,93 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       role: user.role,
       isEmailVerified: user.isEmailVerified,
       mfaEnabled: user.mfa.enabled,
+      profile: user.profile,
     },
   });
 };
 
-export const refreshToken = async (
-  req: Request,
-  res: Response,
-): Promise<void> => {
-  const refreshTokenValue = req.cookies.refreshToken;
-  if (!refreshTokenValue) {
-    res.status(401).json({ error: "Refresh token is missing" });
-    return;
-  }
+// POST /api/auth/refresh
+export const refreshToken = async (req: Request, res: Response): Promise<void> => {
+  const token = req.cookies.refreshToken;
+  if (!token) { res.status(401).json({ error: "Refresh token missing" }); return; }
 
   try {
-    const decoded = verifyRefreshToken(refreshTokenValue);
+    const decoded = verifyRefreshToken(token);
+    const user = await User.findById(decoded.sub).select("+activeRefreshTokens");
+    if (!user) { res.status(401).json({ error: "Invalid session" }); return; }
 
-    const user = await User.findById(decoded.sub).select(
-      "+activeRefreshTokens",
+    const tokenHash = hashToken(token);
+    const session = user.activeRefreshTokens.find(
+      (s) => s.tokenHash === tokenHash && s.expiresAt > new Date(),
     );
-    if (!user) {
-      res.status(401).json({ error: "Invalid refresh token" });
-      return;
-    }
+    if (!session) { res.status(401).json({ error: "Session expired" }); return; }
 
-    const tokenHash = hashToken(refreshTokenValue);
-    const matchedSession = user.activeRefreshTokens.find(
-      (item) => item.tokenHash === tokenHash && item.expiresAt > new Date(),
-    );
-
-    if (!matchedSession) {
-      res.status(401).json({ error: "Refresh token is invalid or expired" });
-      return;
-    }
-
-    const accessToken = generateAccessToken(
-      user._id.toHexString(),
-      user.email,
-      user.role,
-      decoded.sessionId,
-    );
-
-    res.status(200).json({ accessToken, expiresIn: ACCESS_TOKEN_DURATION });
-  } catch (error) {
+    const accessToken = generateAccessToken(user._id.toHexString(), user.email, user.role, decoded.sessionId);
+    res.status(200).json({ accessToken, expiresIn: config.jwt.accessExpires });
+  } catch {
     res.status(401).json({ error: "Invalid refresh token" });
   }
 };
 
+// POST /api/auth/logout
 export const logout = async (req: Request, res: Response): Promise<void> => {
-  const refreshTokenValue = req.cookies.refreshToken;
-  if (refreshTokenValue && req.user) {
-    const user = await User.findById(req.user.sub).select(
-      "+activeRefreshTokens",
-    );
+  const token = req.cookies.refreshToken;
+  if (token && req.user) {
+    const user = await User.findById(req.user.sub).select("+activeRefreshTokens");
     if (user) {
-      const tokenHash = hashToken(refreshTokenValue);
-      user.activeRefreshTokens = user.activeRefreshTokens.filter(
-        (item) => item.tokenHash !== tokenHash,
-      );
+      const th = hashToken(token);
+      user.activeRefreshTokens = user.activeRefreshTokens.filter((s) => s.tokenHash !== th);
       await user.save({ validateBeforeSave: false });
     }
   }
-
-  res.clearCookie("refreshToken", {
-    httpOnly: true,
-    secure: config.env === "production",
-    sameSite: "strict",
-  });
-
-  logSecurityEvent("logout", req.user?.sub ?? null, getSafeIp(req), {
-    userAgent: getSafeUserAgent(req),
-  });
+  res.clearCookie("refreshToken", { httpOnly: true, secure: config.env === "production", sameSite: "strict" });
+  logSecurityEvent("logout", req.user?.sub ?? null, ip(req), {});
   res.status(200).json({ message: "Logged out successfully" });
 };
 
-export const requestPasswordReset = async (
-  req: Request,
-  res: Response,
-): Promise<void> => {
+// POST /api/auth/request-password-reset
+export const requestPasswordReset = async (req: Request, res: Response): Promise<void> => {
   const { email } = req.body;
   const user = await User.findOne({ email });
-  if (!user) {
-    res
-      .status(200)
-      .json({ message: "If the email exists, a reset link will be sent." });
-    return;
-  }
+  // Always return 200 to prevent email enumeration
+  if (!user) { res.status(200).json({ message: "If the email exists, a reset link has been sent." }); return; }
 
   const reset = user.generatePasswordResetToken();
   await user.save({ validateBeforeSave: false });
-  await sendPasswordResetEmail(
-    user.email,
-    user.username,
-    reset.token,
-    reset.code,
-  );
-
-  logSecurityEvent(
-    "password_reset_requested",
-    user._id.toHexString(),
-    getSafeIp(req),
-    {
-      email,
-    },
-  );
-
-  res
-    .status(200)
-    .json({ message: "If the email exists, a reset link will be sent." });
+  await sendPasswordResetEmail(user.email, user.username, reset.token, reset.code);
+  logSecurityEvent("password_reset_requested", user._id.toHexString(), ip(req), { email });
+  res.status(200).json({ message: "If the email exists, a reset link has been sent." });
 };
 
-export const resetPassword = async (
-  req: Request,
-  res: Response,
-): Promise<void> => {
+// POST /api/auth/reset-password/:token  OR  POST /api/auth/reset-password (code)
+export const resetPassword = async (req: Request, res: Response): Promise<void> => {
   const { token } = req.params;
   const { email, code, password } = req.body;
 
   let user;
   if (token) {
-    const hashedToken = hashToken(token);
     user = await User.findOne({
-      passwordResetToken: hashedToken,
+      passwordResetToken: hashToken(token),
       passwordResetExpires: { $gt: new Date() },
     }).select("+password +passwordHistory");
   } else if (email && code) {
-    const hashedCode = hashToken(code);
     user = await User.findOne({
       email,
-      passwordResetCode: hashedCode,
+      passwordResetCode: hashToken(code),
       passwordResetCodeExpires: { $gt: new Date() },
     }).select("+password +passwordHistory");
   } else {
-    res
-      .status(400)
-      .json({ error: "Password reset token or email/code is required" });
+    res.status(400).json({ error: "Reset token or email+code required" });
     return;
   }
 
-  if (!user) {
-    res
-      .status(400)
-      .json({ error: "Invalid or expired password reset token or code" });
-    return;
-  }
+  if (!user) { res.status(400).json({ error: "Invalid or expired reset token" }); return; }
 
   const policy = validatePasswordPolicy(password);
-  if (!policy.valid) {
-    res.status(400).json({
-      error: "Password does not meet requirements",
-      details: policy.errors,
-    });
-    return;
-  }
+  if (!policy.valid) { res.status(400).json({ error: "Password does not meet requirements", details: policy.errors }); return; }
 
   if (await user.isPasswordInHistory(password)) {
-    res.status(400).json({
-      error:
-        "New password cannot be the same as a recently used password for this account. Please choose a different password.",
-    });
+    res.status(400).json({ error: "You cannot reuse a recent password. Please choose a different one." });
     return;
   }
 
@@ -470,38 +303,17 @@ export const resetPassword = async (
   user.passwordResetCodeExpires = null;
   await user.save();
 
-  await sendSecurityAlertEmail(user.email, user.username, "password_changed", {
-    ip: getSafeIp(req),
-    userAgent: getSafeUserAgent(req),
-  });
-  logSecurityEvent("password_reset", user._id.toHexString(), getSafeIp(req), {
-    email: user.email,
-  });
-
-  res.status(200).json({ message: "Password reset successfully" });
+  await sendSecurityAlertEmail(user.email, user.username, "password_changed", { ip: ip(req) });
+  logSecurityEvent("password_reset", user._id.toHexString(), ip(req), { email: user.email });
+  res.status(200).json({ message: "Password reset successfully. You can now log in." });
 };
 
-export const createMFASetup = async (
-  req: Request,
-  res: Response,
-): Promise<void> => {
-  if (!req.user) {
-    res.status(401).json({ error: "Authentication required" });
-    return;
-  }
-
-  const user = await User.findById(req.user.sub).select(
-    "+mfa.secret +mfa.backupCodes",
-  );
-  if (!user) {
-    res.status(404).json({ error: "User not found" });
-    return;
-  }
-
-  if (user.mfa.enabled) {
-    res.status(400).json({ error: "MFA is already enabled" });
-    return;
-  }
+// POST /api/auth/mfa/setup
+export const createMFASetup = async (req: Request, res: Response): Promise<void> => {
+  if (!req.user) { res.status(401).json({ error: "Authentication required" }); return; }
+  const user = await User.findById(req.user.sub).select("+mfa.secret +mfa.backupCodes");
+  if (!user) { res.status(404).json({ error: "User not found" }); return; }
+  if (user.mfa.enabled) { res.status(400).json({ error: "MFA already enabled" }); return; }
 
   const setup = await generateMFASetup(user.email);
   user.mfa.secret = setup.secret;
@@ -510,52 +322,35 @@ export const createMFASetup = async (
   await user.save({ validateBeforeSave: false });
 
   res.status(200).json({
-    message: "Scan the QR code and confirm your authenticator app.",
+    message: "Scan the QR code with your authenticator app.",
     qrCodeDataUrl: setup.qrCodeDataUrl,
     backupCodes: setup.backupCodes,
   });
 };
 
-export const confirmMFASetup = async (
-  req: Request,
-  res: Response,
-): Promise<void> => {
+// POST /api/auth/mfa/confirm
+export const confirmMFASetup = async (req: Request, res: Response): Promise<void> => {
   const { token } = req.body;
-  if (!req.user) {
-    res.status(401).json({ error: "Authentication required" });
-    return;
-  }
+  if (!req.user) { res.status(401).json({ error: "Authentication required" }); return; }
+  const user = await User.findById(req.user.sub).select("+mfa.secret +mfa.backupCodes");
+  if (!user || !user.mfa.secret) { res.status(404).json({ error: "MFA setup not found" }); return; }
 
-  const user = await User.findById(req.user.sub).select(
-    "+mfa.secret +mfa.backupCodes",
-  );
-  if (!user || !user.mfa.secret) {
-    res.status(404).json({ error: "MFA setup not found" });
-    return;
-  }
-
-  const totpVerified = verifyTOTP(user.mfa.secret, token);
-  const backupIndex = await verifyBackupCode(user.mfa.backupCodes, token);
-  if (!totpVerified && backupIndex === -1) {
-    res.status(400).json({ error: "Invalid MFA token" });
-    return;
-  }
-
-  if (backupIndex >= 0) {
-    user.mfa.backupCodes.splice(backupIndex, 1);
-  }
+  const ok = verifyTOTP(user.mfa.secret, token);
+  if (!ok) { res.status(400).json({ error: "Invalid MFA token" }); return; }
 
   user.mfa.enabled = true;
   user.mfa.setupPending = false;
   await user.save({ validateBeforeSave: false });
 
-  logSecurityEvent("mfa_enabled", user._id.toHexString(), getSafeIp(req), {
-    email: user.email,
-  });
-  await sendSecurityAlertEmail(user.email, user.username, "mfa_enabled", {
-    ip: getSafeIp(req),
-    userAgent: getSafeUserAgent(req),
-  });
+  logSecurityEvent("mfa_enabled", user._id.toHexString(), ip(req), {});
+  await sendSecurityAlertEmail(user.email, user.username, "mfa_enabled", { ip: ip(req) });
+  res.status(200).json({ message: "MFA enabled successfully." });
+};
 
-  res.status(200).json({ message: "MFA enabled successfully" });
+// GET /api/auth/me
+export const getMe = async (req: Request, res: Response): Promise<void> => {
+  if (!req.user) { res.status(401).json({ error: "Authentication required" }); return; }
+  const user = await User.findById(req.user.sub).populate("enrolledCourses", "title slug thumbnail");
+  if (!user) { res.status(404).json({ error: "User not found" }); return; }
+  res.status(200).json({ user });
 };

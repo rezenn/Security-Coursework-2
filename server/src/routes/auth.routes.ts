@@ -3,6 +3,7 @@ import { body, param } from "express-validator";
 import {
   confirmMFASetup,
   createMFASetup,
+  getMe,
   login,
   logout,
   refreshToken,
@@ -20,41 +21,20 @@ const router = Router();
 router.post(
   "/register",
   [
-    body("email").isEmail().withMessage("Valid email is required"),
-    body("username")
-      .isLength({ min: 3, max: 30 })
-      .withMessage("Username must be between 3 and 30 characters"),
-    body("password")
-      .isLength({ min: 12 })
-      .withMessage("Password must be at least 12 characters"),
+    body("email").isEmail().normalizeEmail().withMessage("Valid email required"),
+    body("username").isLength({ min: 3, max: 30 }).matches(/^[a-zA-Z0-9_-]+$/).withMessage("Username 3-30 chars (letters, numbers, _ -)"),
+    body("password").isLength({ min: 12 }).withMessage("Password must be at least 12 characters"),
   ],
   validateRequest,
   verifyRecaptcha,
   register,
 );
 
-router.get(
-  "/verify-email/:token",
-  [param("token").isLength({ min: 64, max: 64 }).withMessage("Invalid token")],
-  validateRequest,
-  verifyEmail,
-);
-
-router.post(
-  "/verify-email/:token",
-  [param("token").isLength({ min: 64, max: 64 }).withMessage("Invalid token")],
-  validateRequest,
-  verifyEmail,
-);
-
+router.get("/verify-email/:token", [param("token").isLength({ min: 64, max: 64 })], validateRequest, verifyEmail);
+router.post("/verify-email/:token", [param("token").isLength({ min: 64, max: 64 })], validateRequest, verifyEmail);
 router.post(
   "/verify-email",
-  [
-    body("email").isEmail().withMessage("Valid email is required"),
-    body("code")
-      .isLength({ min: 6, max: 6 })
-      .withMessage("Verification code must be 6 digits"),
-  ],
+  [body("email").isEmail(), body("code").isLength({ min: 6, max: 6 })],
   validateRequest,
   verifyEmail,
 );
@@ -62,8 +42,8 @@ router.post(
 router.post(
   "/login",
   [
-    body("email").isEmail().withMessage("Valid email is required"),
-    body("password").isString().notEmpty().withMessage("Password is required"),
+    body("email").isEmail().normalizeEmail().withMessage("Valid email required"),
+    body("password").isString().notEmpty().withMessage("Password required"),
   ],
   validateRequest,
   verifyRecaptcha,
@@ -72,10 +52,11 @@ router.post(
 
 router.post("/refresh", refreshToken);
 router.post("/logout", requireAuth, logout);
+router.get("/me", requireAuth, getMe);
 
 router.post(
   "/request-password-reset",
-  [body("email").isEmail().withMessage("Valid email is required")],
+  [body("email").isEmail().normalizeEmail()],
   validateRequest,
   verifyRecaptcha,
   requestPasswordReset,
@@ -84,10 +65,8 @@ router.post(
 router.post(
   "/reset-password/:token",
   [
-    param("token").isLength({ min: 64, max: 64 }).withMessage("Invalid token"),
-    body("password")
-      .isLength({ min: 12 })
-      .withMessage("Password must be at least 12 characters"),
+    param("token").isLength({ min: 64, max: 64 }),
+    body("password").isLength({ min: 12 }),
   ],
   validateRequest,
   verifyRecaptcha,
@@ -96,15 +75,7 @@ router.post(
 
 router.post(
   "/reset-password",
-  [
-    body("email").isEmail().withMessage("Valid email is required"),
-    body("code")
-      .isLength({ min: 6, max: 6 })
-      .withMessage("Reset code must be 6 digits"),
-    body("password")
-      .isLength({ min: 12 })
-      .withMessage("Password must be at least 12 characters"),
-  ],
+  [body("email").isEmail(), body("code").isLength({ min: 6, max: 6 }), body("password").isLength({ min: 12 })],
   validateRequest,
   verifyRecaptcha,
   resetPassword,
@@ -113,7 +84,7 @@ router.post(
 router.post("/mfa/setup", requireAuth, createMFASetup);
 router.post(
   "/mfa/confirm",
-  [body("token").isString().notEmpty().withMessage("MFA token is required")],
+  [body("token").isString().notEmpty()],
   validateRequest,
   requireAuth,
   confirmMFASetup,

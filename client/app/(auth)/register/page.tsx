@@ -1,235 +1,160 @@
 "use client";
-
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import Link from "next/link";
-import { authApi } from "@/app/lib/api";
-import { useRecaptcha } from "@/app/hooks/useRecaptcha";
+import { UserPlus, Eye, EyeOff } from "lucide-react";
+import { toast } from "sonner";
+import { useRouter } from "next/navigation";
+import { authApi } from "@/lib/api";
+import { Spinner, ErrorAlert, SuccessAlert } from "@/components/shared";
+import { PasswordStrengthMeter } from "@/components/ui/PasswordStrengthMeter";
+import { validatePasswordPolicy } from "@/lib/utils/password";
+
+const schema = z.object({
+  email: z.string().email("Valid email required"),
+  username: z.string().min(3, "Min 3 chars").max(30, "Max 30 chars").regex(/^[a-zA-Z0-9_-]+$/, "Letters, numbers, _ - only"),
+  password: z.string().min(12, "Minimum 12 characters"),
+  confirmPassword: z.string(),
+}).refine((d) => d.password === d.confirmPassword, {
+  path: ["confirmPassword"],
+  message: "Passwords do not match",
+});
+type Form = z.infer<typeof schema>;
 
 export default function RegisterPage() {
   const router = useRouter();
-  const { getToken } = useRecaptcha();
-  const [form, setForm] = useState({
-    email: "",
-    username: "",
-    password: "",
-    confirm: "",
-  });
+  const [showPw, setShowPw] = useState(false);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
+  const [watchedPw, setWatchedPw] = useState("");
+  const [watchedEmail, setWatchedEmail] = useState("");
+  const [policyErrors, setPolicyErrors] = useState<string[]>([]);
 
-  const handleSubmit = async () => {
+  const { register, handleSubmit, formState: { errors }, watch } = useForm<Form>({ resolver: zodResolver(schema) });
+  const pw = watch("password");
+  const email = watch("email");
+
+  useEffect(() => {
+    setWatchedPw(pw || "");
+    if (pw) setPolicyErrors(validatePasswordPolicy(pw));
+  }, [pw]);
+
+  useEffect(() => { setWatchedEmail(email || ""); }, [email]);
+
+  const onSubmit = async (data: Form) => {
+    if (policyErrors.length > 0) {
+      setError("Password does not meet all requirements");
+      return;
+    }
     setError("");
-    if (!/^[a-zA-Z0-9_-]+$/.test(form.username.trim())) {
-      setError(
-        "Username can only contain letters, numbers, hyphens (-), and underscores (_). No spaces allowed.",
-      );
-      return;
-    }
-    if (form.password !== form.confirm) {
-      setError("Passwords do not match.");
-      return;
-    }
-    if (form.password.length < 12) {
-      setError("Password must be at least 12 characters.");
-      return;
-    }
-    if (
-      !/[A-Z]/.test(form.password) ||
-      !/[0-9]/.test(form.password) ||
-      !/[^a-zA-Z0-9]/.test(form.password)
-    ) {
-      setError(
-        "Password must include an uppercase letter, a number, and a special character.",
-      );
-      return;
-    }
     setLoading(true);
     try {
-      const captchaToken = await getToken("register");
-      await authApi.register({
-        email: form.email,
-        username: form.username,
-        password: form.password,
-        captchaToken,
-      });
-      router.push(`/verify-email?email=${encodeURIComponent(form.email)}`);
-    } catch (e: unknown) {
-      const err = e as { error?: string; message?: string };
-      setError(
-        err.error || err.message || "Registration failed. Please try again.",
-      );
+      let captchaToken: string | undefined;
+      if (typeof window !== "undefined" && (window as any).grecaptcha) {
+        captchaToken = await (window as any).grecaptcha.execute(
+          process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY,
+          { action: "register" },
+        );
+      }
+      await authApi.register({ email: data.email, username: data.username, password: data.password, captchaToken });
+      setSuccess("Account created! Check your email to verify your address before logging in.");
+      toast.success("Registration successful!");
+      setTimeout(() => router.push("/login"), 3000);
+    } catch (err: any) {
+      setError(err?.response?.data?.error || err?.message || "Registration failed");
     } finally {
       setLoading(false);
     }
   };
 
-  const requirements = [
-    { text: "12+ characters", met: form.password.length >= 12 },
-    { text: "Uppercase letter", met: /[A-Z]/.test(form.password) },
-    { text: "Number", met: /[0-9]/.test(form.password) },
-    { text: "Special character", met: /[^a-zA-Z0-9]/.test(form.password) },
-    {
-      text: "Passwords match",
-      met: form.confirm.length > 0 && form.password === form.confirm,
-    },
-  ];
-
   return (
-    <div className="w-full max-w-md px-4">
-      <div
-        style={{
-          background: "var(--vw-card)",
-          border: "1px solid var(--vw-border)",
-        }}
-        className="rounded-2xl p-8 shadow-2xl"
-      >
-        <div className="mb-8">
-          <div className="flex items-center gap-2 mb-6">
-            <div
-              style={{ background: "var(--vw-accent)" }}
-              className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-sm font-bold"
-            >
-              G
-            </div>
-            <span
-              style={{ color: "var(--vw-text)" }}
-              className="font-semibold text-sm tracking-wide"
-            >
-              GyanKosh
-            </span>
+    <>
+      <script
+        src={`https://www.google.com/recaptcha/api.js?render=${process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY}`}
+        async
+        defer
+      />
+      <div className="card">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-10 h-10 bg-blue-600/20 rounded-xl flex items-center justify-center">
+            <UserPlus className="text-blue-400" size={18} />
           </div>
-          <h1
-            style={{ color: "var(--vw-text)" }}
-            className="text-2xl font-semibold"
-          >
-            Create account
-          </h1>
-          <p style={{ color: "var(--vw-muted)" }} className="text-sm mt-1">
-            Join the academic resource marketplace.
-          </p>
+          <div>
+            <h1 className="text-xl font-bold text-white">Create account</h1>
+            <p className="text-slate-400 text-sm">Start learning on GyanKosh</p>
+          </div>
         </div>
 
-        {error && (
-          <div
-            style={{
-              background: "var(--vw-error-bg)",
-              border: "1px solid var(--vw-error-border)",
-              color: "var(--vw-error-text)",
-            }}
-            className="mb-5 p-3 rounded-lg text-sm"
-          >
-            {error}
-          </div>
-        )}
+        {error && <div className="mb-4"><ErrorAlert message={error} /></div>}
+        {success && <div className="mb-4"><SuccessAlert message={success} /></div>}
 
-        <div className="space-y-4">
-          {[
-            {
-              label: "Email",
-              key: "email",
-              type: "email",
-              placeholder: "you@example.com",
-              autoComplete: "email",
-            },
-            {
-              label: "Username",
-              key: "username",
-              type: "text",
-              placeholder: "johndoe",
-              autoComplete: "username",
-              hint: "Letters, numbers, - and _ only. No spaces.",
-            },
-            {
-              label: "Password",
-              key: "password",
-              type: "password",
-              placeholder: "••••••••••••",
-              autoComplete: "new-password",
-            },
-            {
-              label: "Confirm password",
-              key: "confirm",
-              type: "password",
-              placeholder: "••••••••••••",
-              autoComplete: "new-password",
-            },
-          ].map((f) => (
-            <div key={f.key}>
-              <label
-                style={{ color: "var(--vw-muted)" }}
-                className="block text-xs font-medium mb-1.5 uppercase tracking-wider"
-              >
-                {f.label}
-              </label>
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
+          <div>
+            <label className="label">Email</label>
+            <input {...register("email")} type="email" placeholder="you@example.com" className="input" autoComplete="email" />
+            {errors.email && <p className="field-error">{errors.email.message}</p>}
+          </div>
+
+          <div>
+            <label className="label">Username</label>
+            <input {...register("username")} type="text" placeholder="your_username" className="input" autoComplete="username" />
+            {errors.username && <p className="field-error">{errors.username.message}</p>}
+            <p className="text-xs text-slate-500 mt-1">Letters, numbers, hyphens, underscores only</p>
+          </div>
+
+          <div>
+            <label className="label">Password</label>
+            <div className="relative">
               <input
-                type={f.type}
-                value={(form as Record<string, string>)[f.key]}
-                onChange={(e) =>
-                  setForm((prev) => ({ ...prev, [f.key]: e.target.value }))
-                }
-                onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
-                placeholder={f.placeholder}
-                autoComplete={f.autoComplete}
-                style={{
-                  background: "var(--vw-input-bg)",
-                  border: "1px solid var(--vw-border)",
-                  color: "var(--vw-text)",
-                }}
-                className="w-full px-3.5 py-2.5 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all placeholder:text-gray-600"
+                {...register("password")}
+                type={showPw ? "text" : "password"}
+                placeholder="Create a strong password"
+                className="input pr-10"
+                autoComplete="new-password"
               />
-              {(f as any).hint && (
-                <p
-                  className="mt-1 text-xs"
-                  style={{ color: "var(--vw-muted)" }}
-                >
-                  {(f as any).hint}
-                </p>
-              )}
-            </div>
-          ))}
-        </div>
-
-        {form.password && (
-          <div className="mt-3 grid grid-cols-2 gap-1.5">
-            {requirements.map((r) => (
-              <div
-                key={r.text}
-                className="text-xs flex items-center gap-1.5"
-                style={{
-                  color: r.met ? "var(--vw-success-text)" : "var(--vw-muted)",
-                }}
+              <button
+                type="button"
+                onClick={() => setShowPw(!showPw)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200"
               >
-                <span>{r.met ? "✓" : "○"}</span>
-                {r.text}
-              </div>
-            ))}
+                {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+            {errors.password && <p className="field-error">{errors.password.message}</p>}
+            {/* Real-time password strength meter */}
+            <PasswordStrengthMeter password={watchedPw} userInputs={[watchedEmail]} />
           </div>
-        )}
 
-        <button
-          onClick={handleSubmit}
-          disabled={loading}
-          style={{ background: "var(--vw-accent)" }}
-          className="mt-6 w-full py-2.5 rounded-lg text-white font-medium text-sm transition-all hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {loading ? "Creating account…" : "Create account"}
-        </button>
+          <div>
+            <label className="label">Confirm Password</label>
+            <input
+              {...register("confirmPassword")}
+              type={showPw ? "text" : "password"}
+              placeholder="Repeat your password"
+              className="input"
+              autoComplete="new-password"
+            />
+            {errors.confirmPassword && <p className="field-error">{errors.confirmPassword.message}</p>}
+          </div>
 
-        <p
-          style={{ color: "var(--vw-muted)" }}
-          className="mt-5 text-center text-sm"
-        >
-          Already have an account?{" "}
-          <Link
-            href="/login"
-            style={{ color: "var(--vw-accent)" }}
-            className="hover:underline font-medium"
+          <button
+            type="submit"
+            disabled={loading || policyErrors.length > 0}
+            className="btn-primary w-full flex items-center justify-center gap-2 mt-2"
           >
-            Sign in
-          </Link>
+            {loading ? <Spinner size={16} /> : <UserPlus size={16} />}
+            Create Account
+          </button>
+        </form>
+
+        <p className="text-center text-slate-400 text-sm mt-6">
+          Already have an account?{" "}
+          <Link href="/login" className="text-blue-400 hover:text-blue-300 font-medium">Sign in</Link>
         </p>
       </div>
-    </div>
+    </>
   );
 }

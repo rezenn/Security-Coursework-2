@@ -19,29 +19,14 @@ const consoleFormat = winston.format.combine(
   }),
 );
 
-const errorRotateTransport = new DailyRotateFile({
-  filename: path.join(__dirname, "../../logs/error-%DATE%.log"),
-  datePattern: "YYYY-MM-DD",
-  level: "error",
-  maxFiles: "30d",
-  maxSize: "20m",
-  zippedArchive: true,
-});
-
-const combinedRotateTransport = new DailyRotateFile({
-  filename: path.join(__dirname, "../../logs/combined-%DATE%.log"),
-  datePattern: "YYYY-MM-DD",
-  maxFiles: "30d",
-  maxSize: "20m",
-  zippedArchive: true,
-});
+const logsDir = path.join(__dirname, "../../logs");
 
 export const auditLogger = winston.createLogger({
   level: "info",
   format: logFormat,
   transports: [
     new DailyRotateFile({
-      filename: path.join(__dirname, "../../logs/audit-%DATE%.log"),
+      filename: path.join(logsDir, "audit-%DATE%.log"),
       datePattern: "YYYY-MM-DD",
       maxFiles: "90d",
       maxSize: "20m",
@@ -53,7 +38,23 @@ export const auditLogger = winston.createLogger({
 const logger = winston.createLogger({
   level: process.env.NODE_ENV === "production" ? "warn" : "debug",
   format: logFormat,
-  transports: [errorRotateTransport, combinedRotateTransport],
+  transports: [
+    new DailyRotateFile({
+      filename: path.join(logsDir, "error-%DATE%.log"),
+      level: "error",
+      datePattern: "YYYY-MM-DD",
+      maxFiles: "30d",
+      maxSize: "20m",
+      zippedArchive: true,
+    }),
+    new DailyRotateFile({
+      filename: path.join(logsDir, "combined-%DATE%.log"),
+      datePattern: "YYYY-MM-DD",
+      maxFiles: "30d",
+      maxSize: "20m",
+      zippedArchive: true,
+    }),
+  ],
   exitOnError: false,
 });
 
@@ -61,26 +62,24 @@ if (process.env.NODE_ENV !== "production") {
   logger.add(new winston.transports.Console({ format: consoleFormat }));
 }
 
+const SENSITIVE = ["password", "token", "secret", "mfaCode", "otp", "card"];
+
 export const logSecurityEvent = (
   event: string,
   userId: string | null,
   ip: string,
   details: Record<string, unknown> = {},
 ): void => {
-  const sanitizedDetails = { ...details };
-  const sensitiveKeys = ["password", "token", "secret", "mfaCode", "otp"];
-  sensitiveKeys.forEach((key) => {
-    if (key in sanitizedDetails) {
-      sanitizedDetails[key] = "[REDACTED]";
-    }
+  const sanitized = { ...details };
+  SENSITIVE.forEach((k) => {
+    if (k in sanitized) sanitized[k] = "[REDACTED]";
   });
-
   auditLogger.info({
     event,
     userId: userId ?? "anonymous",
     ip,
     timestamp: new Date().toISOString(),
-    ...sanitizedDetails,
+    ...sanitized,
   });
 };
 

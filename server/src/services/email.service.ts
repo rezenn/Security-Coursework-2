@@ -6,170 +6,80 @@ const transporter = nodemailer.createTransport({
   host: config.email.host,
   port: config.email.port,
   secure: config.email.port === 465,
-  auth: {
-    user: config.email.user,
-    pass: config.email.pass,
-  },
-  tls: {
-    rejectUnauthorized: config.env === "production",
-    minVersion: "TLSv1.2",
-  },
+  auth: { user: config.email.user, pass: config.email.pass },
+  tls: { rejectUnauthorized: config.env === "production", minVersion: "TLSv1.2" },
 });
 
-const baseTemplate = (title: string, content: string): string => `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${title}</title>
-  <style>
-    body { font-family: Arial, sans-serif; background: #f4f4f4; margin: 0; padding: 20px; }
-    .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 8px; padding: 40px; }
-    .header { background: #1a1a2e; color: white; padding: 20px; border-radius: 8px 8px 0 0; text-align: center; }
-    .button { display: inline-block; background: #e94560; color: white; padding: 12px 30px;
-              text-decoration: none; border-radius: 5px; margin: 20px 0; font-weight: bold; }
-    .warning { background: #fff3cd; border: 1px solid #ffc107; padding: 15px; border-radius: 5px; margin: 15px 0; }
-    .footer { color: #999; font-size: 12px; text-align: center; margin-top: 30px; }
-    code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; font-family: monospace; }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <div class="header"><h2>GyanKosh</h2></div>
-    <div style="padding: 30px 0;">
-      ${content}
-    </div>
-    <div class="footer">
-      <p>This email was sent from GyanKosh. If you didn't request this, please ignore it.</p>
-      <p>For security, links expire after the stated time period.</p>
-    </div>
-  </div>
-</body>
-</html>
-`;
+const base = (title: string, body: string) => `
+<!DOCTYPE html><html><head><meta charset="UTF-8">
+<style>
+body{font-family:Arial,sans-serif;background:#f4f4f4;margin:0;padding:20px}
+.c{max-width:600px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden}
+.h{background:#1e293b;color:#fff;padding:24px 32px;text-align:center}
+.h h2{margin:0;font-size:22px}
+.b{padding:32px}
+.btn{display:inline-block;background:#3b82f6;color:#fff;padding:12px 28px;text-decoration:none;border-radius:6px;font-weight:bold;margin:20px 0}
+.warn{background:#fef3c7;border:1px solid #f59e0b;padding:14px;border-radius:6px;margin:16px 0;font-size:14px}
+.f{color:#9ca3af;font-size:12px;text-align:center;padding:20px}
+code{background:#f3f4f6;padding:2px 6px;border-radius:3px;font-family:monospace;font-size:13px}
+</style></head><body>
+<div class="c">
+<div class="h"><h2>GyanKosh</h2></div>
+<div class="b">${body}</div>
+<div class="f">This email was sent by GyanKosh. If you didn't request this, please ignore it.</div>
+</div></body></html>`;
 
-export const sendVerificationEmail = async (
-  to: string,
-  username: string,
-  token: string,
-  code: string,
-): Promise<void> => {
-  const verifyUrl = `${config.frontendUrl}/verify?token=${token}`;
-
-  const content = `
-    <h3>Welcome, ${username}!</h3>
-    <p>Please verify your email address to activate your account.</p>
-    <p>Your verification code is <strong>${code}</strong>.</p>
-    <p>This code expires in <strong>24 hours</strong>.</p>
-    <a href="${verifyUrl}" class="button">Verify Email Address</a>
-    <div class="warning">
-      ⚠️ If you did not create an account, please ignore this email. No action is required.
-    </div>
-    <p>Or copy this link: <code>${verifyUrl}</code></p>
-  `;
-
-  await sendEmail(
-    to,
-    "Verify your Gyankosh account",
-    baseTemplate("Email Verification", content),
-  );
-};
-
-export const sendPasswordResetEmail = async (
-  to: string,
-  username: string,
-  token: string,
-  code: string,
-): Promise<void> => {
-  const resetUrl = `${config.frontendUrl}/reset-password/${token}`;
-
-  const content = `
-    <h3>Password Reset Request</h3>
-    <p>Hi ${username}, we received a request to reset your password.</p>
-    <p>Your reset code is <strong>${code}</strong>. This code expires in <strong>15 minutes</strong>.</p>
-    <a href="${resetUrl}" class="button">Reset Password</a>
-    <div class="warning">
-      ⚠️ If you didn't request a password reset, your account may be at risk.
-      Please <a href="${config.frontendUrl}/login">login</a> and change your password immediately.
-    </div>
-    <p>Or copy this link: <code>${resetUrl}</code></p>
-  `;
-
-  await sendEmail(
-    to,
-    "Reset your GyanKosh password",
-    baseTemplate("Password Reset", content),
-  );
-};
-
-export const sendSecurityAlertEmail = async (
-  to: string,
-  username: string,
-  alertType:
-    | "new_login"
-    | "account_locked"
-    | "password_changed"
-    | "mfa_enabled",
-  details: { ip?: string; userAgent?: string; timestamp?: string },
-): Promise<void> => {
-  const messages: Record<typeof alertType, string> = {
-    new_login: `A new login to your account was detected from IP <code>${details.ip}</code>.`,
-    account_locked: `Your account has been temporarily locked due to multiple failed login attempts from IP <code>${details.ip}</code>.`,
-    password_changed: "Your password was successfully changed.",
-    mfa_enabled: "Two-factor authentication has been enabled on your account.",
-  };
-
-  const content = `
-    <h3>Security Alert</h3>
-    <p>Hi ${username},</p>
-    <p>${messages[alertType]}</p>
-    <p><strong>Time:</strong> ${details.timestamp || new Date().toISOString()}</p>
-    <div class="warning">
-      ⚠️ If this wasn't you, please reset your password immediately.
-    </div>
-  `;
-
-  await sendEmail(
-    to,
-    `GyanKosh Security Alert: ${alertType.replace(/_/g, " ")}`,
-    baseTemplate("Security Alert", content),
-  );
-};
-
-const sendEmail = async (
-  to: string,
-  subject: string,
-  html: string,
-): Promise<void> => {
+const send = async (to: string, subject: string, html: string) => {
   try {
-    const canSendEmail =
-      config.env === "production" || config.email.sendInDevelopment;
-
-    if (!config.email.host || !config.email.user || !config.email.pass) {
-      logger.warn(
-        "Email configuration incomplete. Skipping SMTP send. Check SMTP_HOST, SMTP_PORT, SMTP_USER, and SMTP_PASS.",
-      );
-      logger.info(`[DEV EMAIL] To: ${to} | Subject: ${subject}`);
+    if (!config.email.user || !config.email.pass) {
+      logger.info(`[DEV EMAIL skipped — no SMTP config] To: ${to} | ${subject}`);
       return;
     }
-
-    if (!canSendEmail) {
-      logger.info(
-        `[DEV EMAIL] To: ${to} | Subject: ${subject} | Email sending disabled in development. Set EMAIL_SEND_IN_DEVELOPMENT=true to enable SMTP sending.`,
-      );
+    if (config.env !== "production" && !config.email.sendInDevelopment) {
+      logger.info(`[DEV EMAIL] To: ${to} | ${subject}`);
       return;
     }
-
-    await transporter.sendMail({
-      from: config.email.from,
-      to,
-      subject,
-      html,
-    });
-
-    logger.info(`Email sent to ${to}: ${subject}`);
-  } catch (error) {
-    logger.error(`Failed to send email to ${to}:`, error);
+    await transporter.sendMail({ from: config.email.from, to, subject, html });
+    logger.info(`Email sent to ${to}`);
+  } catch (e) {
+    logger.error(`Email failed to ${to}`, e);
   }
 };
+
+export const sendVerificationEmail = (to: string, username: string, token: string, code: string) =>
+  send(to, "Verify your GyanKosh account", base("Verify Email",
+    `<h3>Welcome, ${username}!</h3>
+    <p>Your verification code: <strong>${code}</strong> (expires in 24h)</p>
+    <a href="${config.frontendUrl}/verify-email?token=${token}" class="btn">Verify Email</a>
+    <div class="warn">⚠️ If you didn't create this account, ignore this email.</div>`));
+
+export const sendPasswordResetEmail = (to: string, username: string, token: string, code: string) =>
+  send(to, "Reset your GyanKosh password", base("Password Reset",
+    `<h3>Password Reset Request</h3>
+    <p>Hi ${username}, your reset code: <strong>${code}</strong> (expires in 15 min)</p>
+    <a href="${config.frontendUrl}/reset-password/${token}" class="btn">Reset Password</a>
+    <div class="warn">⚠️ If you didn't request this, change your password immediately.</div>`));
+
+export const sendSecurityAlertEmail = (
+  to: string, username: string,
+  type: "new_login" | "password_changed" | "mfa_enabled" | "account_locked",
+  details: { ip?: string; userAgent?: string; timestamp?: string },
+) => {
+  const msgs: Record<typeof type, string> = {
+    new_login: `New login detected from <code>${details.ip}</code>.`,
+    password_changed: "Your password was changed.",
+    mfa_enabled: "Two-factor authentication was enabled.",
+    account_locked: `Account locked after repeated failed attempts from <code>${details.ip}</code>.`,
+  };
+  return send(to, `GyanKosh Security Alert`, base("Security Alert",
+    `<h3>Security Alert</h3><p>Hi ${username},</p><p>${msgs[type]}</p>
+    <p><strong>Time:</strong> ${details.timestamp || new Date().toISOString()}</p>
+    <div class="warn">⚠️ If this wasn't you, reset your password immediately.</div>`));
+};
+
+export const sendPurchaseConfirmationEmail = (to: string, username: string, courseTitle: string, amountCents: number) =>
+  send(to, `GyanKosh: Purchase Confirmed — ${courseTitle}`, base("Purchase Confirmed",
+    `<h3>Thank you, ${username}!</h3>
+    <p>Your purchase of <strong>${courseTitle}</strong> is confirmed.</p>
+    <p>Amount charged: <strong>$${(amountCents / 100).toFixed(2)}</strong></p>
+    <a href="${config.frontendUrl}/dashboard" class="btn">Go to Dashboard</a>`));

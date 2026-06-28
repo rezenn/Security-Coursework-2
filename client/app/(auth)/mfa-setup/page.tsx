@@ -1,147 +1,117 @@
-
 "use client";
+import { useEffect, useState } from "react";
+import { ShieldCheck, Copy, CheckCircle } from "lucide-react";
+import { toast } from "sonner";
+import { authApi } from "@/lib/api";
+import { useRequireAuth } from "@/hooks/useRequireAuth";
+import { Spinner, ErrorAlert, SuccessAlert } from "@/components/shared";
+import Image from "next/image";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { authApi } from "@/app/lib/api";
-
-export default function MfaSetupPage() {
-  const router = useRouter();
-  const [step, setStep] = useState<"idle" | "scan" | "done">("idle");
-  const [qrCode, setQrCode] = useState("");
-  const [backupCodes, setBackupCodes] = useState<string[]>([]);
+export default function MFASetupPage() {
+  const { loading: authLoading } = useRequireAuth();
+  const [setup, setSetup] = useState<{ qrCodeDataUrl: string; backupCodes: string[] } | null>(null);
   const [token, setToken] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState("");
+  const [copied, setCopied] = useState(false);
 
-  const startSetup = async () => {
-    setLoading(true);
+  useEffect(() => {
+    if (authLoading) return;
+    authApi.setupMFA()
+      .then((d) => setSetup(d))
+      .catch((e) => setError(e?.response?.data?.error || "Failed to initialize MFA setup"))
+      .finally(() => setLoading(false));
+  }, [authLoading]);
+
+  const handleConfirm = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setConfirming(true);
     setError("");
     try {
-      const data = await authApi.setupMfa();
-      setQrCode(data.qrCodeDataUrl);
-      setBackupCodes(data.backupCodes);
-      setStep("scan");
-    } catch (e: unknown) {
-      const err = e as { error?: string; message?: string };
-      setError(err.error || err.message || "Failed to start MFA setup.");
+      await authApi.confirmMFA(token);
+      setSuccess("MFA enabled! Your account is now protected with two-factor authentication.");
+    } catch (err: any) {
+      setError(err?.response?.data?.error || "Invalid code. Try again.");
     } finally {
-      setLoading(false);
+      setConfirming(false);
     }
   };
 
-  const confirmSetup = async () => {
-    if (token.length !== 6) { setError("Enter the 6-digit code from your app."); return; }
-    setLoading(true);
-    setError("");
-    try {
-      await authApi.confirmMfa({ token });
-      setStep("done");
-    } catch (e: unknown) {
-      const err = e as { error?: string; message?: string };
-      setError(err.error || err.message || "Invalid code. Please try again.");
-    } finally {
-      setLoading(false);
-    }
+  const copyBackupCodes = () => {
+    if (!setup) return;
+    navigator.clipboard.writeText(setup.backupCodes.join("\n"));
+    setCopied(true);
+    toast.success("Backup codes copied!");
+    setTimeout(() => setCopied(false), 3000);
   };
+
+  if (loading) return <div className="flex justify-center p-12"><Spinner size={28} className="text-blue-400" /></div>;
 
   return (
-    <div className="w-full max-w-md px-4">
-      <div style={{ background: "var(--vw-card)", border: "1px solid var(--vw-border)" }} className="rounded-2xl p-8 shadow-2xl">
-
-        {step === "idle" && (
-          <>
-            <div className="flex items-center gap-2 mb-8">
-              <div style={{ background: "var(--vw-accent)" }} className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-sm font-bold">G</div>
-              <span style={{ color: "var(--vw-text)" }} className="font-semibold text-sm tracking-wide">GyanKosh</span>
-            </div>
-            <h1 style={{ color: "var(--vw-text)" }} className="text-2xl font-semibold mb-2">Two-factor authentication</h1>
-            <p style={{ color: "var(--vw-muted)" }} className="text-sm mb-6">
-              Add an extra layer of security using an authenticator app (Google Authenticator, Authy, etc.).
-            </p>
-            {error && (
-              <div style={{ background: "var(--vw-error-bg)", border: "1px solid var(--vw-error-border)", color: "var(--vw-error-text)" }} className="mb-5 p-3 rounded-lg text-sm">{error}</div>
-            )}
-            <button
-              onClick={startSetup}
-              disabled={loading}
-              style={{ background: "var(--vw-accent)" }}
-              className="w-full py-2.5 rounded-lg text-white font-medium text-sm hover:opacity-90 disabled:opacity-50 transition-all"
-            >
-              {loading ? "Setting up…" : "Set up authenticator"}
-            </button>
-          </>
-        )}
-
-        {step === "scan" && (
-          <>
-            <h1 style={{ color: "var(--vw-text)" }} className="text-xl font-semibold mb-2">Scan QR code</h1>
-            <p style={{ color: "var(--vw-muted)" }} className="text-sm mb-5">
-              Open your authenticator app and scan this code.
-            </p>
-            {qrCode && (
-              <div style={{ background: "var(--vw-input-bg)", border: "1px solid var(--vw-border)" }} className="rounded-xl p-4 flex items-center justify-center mb-5">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={qrCode} alt="MFA QR Code" className="rounded-lg w-40 h-40" />
-              </div>
-            )}
-            {error && (
-              <div style={{ background: "var(--vw-error-bg)", border: "1px solid var(--vw-error-border)", color: "var(--vw-error-text)" }} className="mb-4 p-3 rounded-lg text-sm">{error}</div>
-            )}
-            <label style={{ color: "var(--vw-muted)" }} className="block text-xs font-medium mb-1.5 uppercase tracking-wider">
-              Confirmation code
-            </label>
-            <input
-              type="text"
-              inputMode="numeric"
-              maxLength={6}
-              value={token}
-              onChange={(e) => setToken(e.target.value.replace(/\D/g, ""))}
-              onKeyDown={(e) => e.key === "Enter" && confirmSetup()}
-              placeholder="000000"
-              autoComplete="one-time-code"
-              style={{ background: "var(--vw-input-bg)", border: "1px solid var(--vw-border)", color: "var(--vw-text)" }}
-              className="w-full px-3.5 py-2.5 rounded-lg text-center text-xl font-semibold tracking-[0.5em] focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all placeholder:tracking-normal placeholder:text-gray-600 mb-5"
-            />
-            <button
-              onClick={confirmSetup}
-              disabled={loading}
-              style={{ background: "var(--vw-accent)" }}
-              className="w-full py-2.5 rounded-lg text-white font-medium text-sm hover:opacity-90 disabled:opacity-50 transition-all"
-            >
-              {loading ? "Verifying…" : "Activate 2FA"}
-            </button>
-          </>
-        )}
-
-        {step === "done" && (
-          <>
-            <div className="text-center mb-6">
-              <div style={{ background: "var(--vw-success-bg)", border: "1px solid var(--vw-success-border)" }} className="w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-4">
-                <svg className="w-5 h-5" style={{ color: "var(--vw-success-text)" }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-              </div>
-              <h1 style={{ color: "var(--vw-text)" }} className="text-xl font-semibold">2FA enabled</h1>
-            </div>
-            <p style={{ color: "var(--vw-muted)" }} className="text-sm mb-3">
-              Save these backup codes — each can only be used once. Store them somewhere safe.
-            </p>
-            <div style={{ background: "var(--vw-input-bg)", border: "1px solid var(--vw-border)" }} className="rounded-lg p-4 grid grid-cols-2 gap-2 mb-5">
-              {backupCodes.map((c, i) => (
-                <code key={i} style={{ color: "var(--vw-text)" }} className="text-xs font-mono">{c}</code>
-              ))}
-            </div>
-            <button
-              onClick={() => router.push("/dashboard")}
-              style={{ background: "var(--vw-accent)" }}
-              className="w-full py-2.5 rounded-lg text-white font-medium text-sm hover:opacity-90 transition-all"
-            >
-              Done — go to dashboard
-            </button>
-          </>
-        )}
+    <div className="card max-w-lg mx-auto">
+      <div className="flex items-center gap-3 mb-6">
+        <div className="w-10 h-10 bg-blue-600/20 rounded-xl flex items-center justify-center">
+          <ShieldCheck className="text-blue-400" size={18} />
+        </div>
+        <div>
+          <h1 className="text-xl font-bold text-white">Enable 2FA</h1>
+          <p className="text-slate-400 text-sm">Protect your account with an authenticator app</p>
+        </div>
       </div>
+
+      {error && <div className="mb-4"><ErrorAlert message={error} /></div>}
+      {success && <div className="mb-4"><SuccessAlert message={success} /></div>}
+
+      {setup && !success && (
+        <>
+          <div className="space-y-4">
+            <div>
+              <p className="text-slate-300 text-sm mb-3 font-medium">Step 1 — Scan this QR code</p>
+              <div className="bg-white rounded-xl p-3 w-fit mx-auto">
+                <img src={setup.qrCodeDataUrl} alt="MFA QR Code" width={200} height={200} />
+              </div>
+              <p className="text-xs text-slate-500 text-center mt-2">
+                Use Google Authenticator, Authy, or any TOTP app
+              </p>
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-slate-300 text-sm font-medium">Step 2 — Save backup codes</p>
+                <button onClick={copyBackupCodes} className="flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300">
+                  {copied ? <CheckCircle size={12} /> : <Copy size={12} />}
+                  {copied ? "Copied!" : "Copy all"}
+                </button>
+              </div>
+              <div className="bg-slate-900 border border-slate-700 rounded-lg p-3 grid grid-cols-2 gap-1">
+                {setup.backupCodes.map((code, i) => (
+                  <code key={i} className="text-xs text-green-400 font-mono">{code}</code>
+                ))}
+              </div>
+              <p className="text-xs text-yellow-400 mt-2">⚠️ Store these somewhere safe — they can only be shown once.</p>
+            </div>
+
+            <form onSubmit={handleConfirm}>
+              <p className="text-slate-300 text-sm font-medium mb-2">Step 3 — Verify setup</p>
+              <input
+                type="text"
+                inputMode="numeric"
+                maxLength={6}
+                value={token}
+                onChange={(e) => setToken(e.target.value)}
+                placeholder="Enter 6-digit code from app"
+                className="input tracking-[0.3em] text-center text-lg mb-3"
+              />
+              <button type="submit" disabled={confirming || token.length !== 6} className="btn-primary w-full flex items-center justify-center gap-2">
+                {confirming ? <Spinner size={16} /> : <ShieldCheck size={16} />}
+                Enable 2FA
+              </button>
+            </form>
+          </div>
+        </>
+      )}
     </div>
   );
 }

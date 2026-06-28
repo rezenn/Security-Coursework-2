@@ -5,7 +5,6 @@ import config from "../config/env.config";
 
 export enum UserRole {
   USER = "user",
-  MODERATOR = "moderator",
   ADMIN = "admin",
 }
 
@@ -23,6 +22,15 @@ export interface IUser extends Document {
   isActive: boolean;
   isEmailVerified: boolean;
 
+  // Profile
+  profile: {
+    firstName: string;
+    lastName: string;
+    bio: string;
+    avatarUrl: string | null;
+  };
+
+  // MFA
   mfa: {
     enabled: boolean;
     secret: string | null;
@@ -30,14 +38,18 @@ export interface IUser extends Document {
     setupPending: boolean;
   };
 
+  // Password security
   passwordHistory: IPasswordHistory[];
   passwordChangedAt: Date;
   passwordExpiresAt: Date;
+
+  // Brute-force protection
   failedLoginAttempts: number;
   lockedUntil: Date | null;
   lastLoginAt: Date | null;
   lastLoginIp: string | null;
 
+  // Tokens
   emailVerificationToken: string | null;
   emailVerificationCode: string | null;
   emailVerificationExpires: Date | null;
@@ -47,6 +59,7 @@ export interface IUser extends Document {
   passwordResetExpires: Date | null;
   passwordResetCodeExpires: Date | null;
 
+  // Active sessions
   activeRefreshTokens: {
     tokenHash: string;
     userAgent: string;
@@ -55,18 +68,15 @@ export interface IUser extends Document {
     expiresAt: Date;
   }[];
 
-  profile: {
-    firstName: string;
-    lastName: string;
-    bio: string;
-    avatarUrl: string | null;
-  };
+  // Enrolled courses
+  enrolledCourses: mongoose.Types.ObjectId[];
 
   createdAt: Date;
   updatedAt: Date;
 
-  comparePassword(candidatePassword: string): Promise<boolean>;
-  isPasswordInHistory(candidatePassword: string): Promise<boolean>;
+  // Methods
+  comparePassword(candidate: string): Promise<boolean>;
+  isPasswordInHistory(candidate: string): Promise<boolean>;
   isLocked(): boolean;
   incrementFailedAttempts(): Promise<void>;
   resetFailedAttempts(): Promise<void>;
@@ -83,25 +93,22 @@ const userSchema = new Schema<IUser>(
       unique: true,
       lowercase: true,
       trim: true,
-      match: [/^\S+@\S+\.\S+$/, "Please provide a valid email"],
-      maxlength: [254, "Email cannot exceed 254 characters"],
+      match: [/^\S+@\S+\.\S+$/, "Invalid email"],
+      maxlength: 254,
     },
     username: {
       type: String,
       required: [true, "Username is required"],
       unique: true,
       trim: true,
-      minlength: [3, "Username must be at least 3 characters"],
-      maxlength: [30, "Username cannot exceed 30 characters"],
-      match: [
-        /^[a-zA-Z0-9_-]+$/,
-        "Username can only contain letters, numbers, hyphens, underscores",
-      ],
+      minlength: 3,
+      maxlength: 30,
+      match: [/^[a-zA-Z0-9_-]+$/, "Invalid username characters"],
     },
     password: {
       type: String,
       required: [true, "Password is required"],
-      minlength: [12, "Password must be at least 12 characters"],
+      minlength: 12,
       select: false,
     },
     role: {
@@ -111,6 +118,13 @@ const userSchema = new Schema<IUser>(
     },
     isActive: { type: Boolean, default: true },
     isEmailVerified: { type: Boolean, default: false },
+
+    profile: {
+      firstName: { type: String, trim: true, maxlength: 50, default: "" },
+      lastName: { type: String, trim: true, maxlength: 50, default: "" },
+      bio: { type: String, trim: true, maxlength: 500, default: "" },
+      avatarUrl: { type: String, default: null },
+    },
 
     mfa: {
       enabled: { type: Boolean, default: false },
@@ -132,8 +146,9 @@ const userSchema = new Schema<IUser>(
     passwordChangedAt: { type: Date, default: Date.now },
     passwordExpiresAt: {
       type: Date,
-      default: () => new Date(Date.now() + 90 * 24 * 60 * 60 * 1000), // 90 days
+      default: () => new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
     },
+
     failedLoginAttempts: { type: Number, default: 0 },
     lockedUntil: { type: Date, default: null },
     lastLoginAt: { type: Date, default: null },
@@ -162,51 +177,25 @@ const userSchema = new Schema<IUser>(
       select: false,
     },
 
-    profile: {
-      firstName: { type: String, trim: true, maxlength: 50, default: "" },
-      lastName: { type: String, trim: true, maxlength: 50, default: "" },
-      bio: { type: String, trim: true, maxlength: 500, default: "" },
-      avatarUrl: { type: String, default: null },
-    },
+    enrolledCourses: [{ type: Schema.Types.ObjectId, ref: "Course" }],
   },
   {
     timestamps: true,
     versionKey: false,
     toJSON: {
-      transform(_doc, ret: any) {
-        if (ret.password) {
-          delete ret.password;
+      transform(_doc, ret: Record<string, unknown>) {
+        delete ret.password;
+        if (ret.mfa && typeof ret.mfa === "object") {
+          const mfa = ret.mfa as Record<string, unknown>;
+          delete mfa.secret;
+          delete mfa.backupCodes;
         }
-
-        if (ret.mfa) {
-          delete ret.mfa.secret;
-          delete ret.mfa.backupCodes;
-        }
-
-        if (ret.passwordHistory) {
-          delete ret.passwordHistory;
-        }
-
-        if (ret.emailVerificationToken) {
-          delete ret.emailVerificationToken;
-        }
-
-        if (ret.emailVerificationCode) {
-          delete ret.emailVerificationCode;
-        }
-
-        if (ret.passwordResetToken) {
-          delete ret.passwordResetToken;
-        }
-
-        if (ret.passwordResetCode) {
-          delete ret.passwordResetCode;
-        }
-
-        if (ret.activeRefreshTokens) {
-          delete ret.activeRefreshTokens;
-        }
-
+        delete ret.passwordHistory;
+        delete ret.emailVerificationToken;
+        delete ret.emailVerificationCode;
+        delete ret.passwordResetToken;
+        delete ret.passwordResetCode;
+        delete ret.activeRefreshTokens;
         return ret;
       },
     },
@@ -215,31 +204,28 @@ const userSchema = new Schema<IUser>(
 
 userSchema.index({ passwordResetToken: 1 }, { sparse: true });
 userSchema.index({ emailVerificationToken: 1 }, { sparse: true });
-userSchema.index({ lockedUntil: 1 }, { expireAfterSeconds: 0, sparse: true });
 
+// Hash password on save
 userSchema.pre("save", async function (next) {
   if (!this.isModified("password")) return next();
-
-  const SALT_ROUNDS = 12;
-  this.password = await bcrypt.hash(this.password, SALT_ROUNDS);
+  this.password = await bcrypt.hash(this.password, 12);
   this.passwordChangedAt = new Date();
   this.passwordExpiresAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
   next();
 });
 
 userSchema.methods.comparePassword = async function (
-  candidatePassword: string,
+  candidate: string,
 ): Promise<boolean> {
-  return bcrypt.compare(candidatePassword, this.password);
+  return bcrypt.compare(candidate, this.password);
 };
 
 userSchema.methods.isPasswordInHistory = async function (
-  candidatePassword: string,
+  candidate: string,
 ): Promise<boolean> {
-  const history = this.passwordHistory?.slice(-5) ?? [];
+  const history = (this.passwordHistory as IPasswordHistory[])?.slice(-5) ?? [];
   for (const entry of history) {
-    const match = await bcrypt.compare(candidatePassword, entry.hash);
-    if (match) return true;
+    if (await bcrypt.compare(candidate, entry.hash)) return true;
   }
   return false;
 };
@@ -250,13 +236,11 @@ userSchema.methods.isLocked = function (): boolean {
 
 userSchema.methods.incrementFailedAttempts = async function (): Promise<void> {
   this.failedLoginAttempts += 1;
-
   if (this.failedLoginAttempts >= config.lockout.maxFailedAttempts) {
     this.lockedUntil = new Date(
       Date.now() + config.lockout.durationMinutes * 60 * 1000,
     );
   }
-
   await this.save({ validateBeforeSave: false });
 };
 
@@ -284,8 +268,8 @@ userSchema.methods.generatePasswordResetToken = function (): {
     .createHash("sha256")
     .update(code)
     .digest("hex");
-  this.passwordResetExpires = new Date(Date.now() + 15 * 60 * 1000); // 15 mins
-  this.passwordResetCodeExpires = new Date(Date.now() + 15 * 60 * 1000); // 15 mins
+  this.passwordResetExpires = new Date(Date.now() + 15 * 60 * 1000);
+  this.passwordResetCodeExpires = new Date(Date.now() + 15 * 60 * 1000);
   return { token, code };
 };
 
@@ -303,10 +287,10 @@ userSchema.methods.generateEmailVerificationToken = function (): {
     .createHash("sha256")
     .update(code)
     .digest("hex");
-  this.emailVerificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24h
+  this.emailVerificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
   this.emailVerificationCodeExpires = new Date(
     Date.now() + 24 * 60 * 60 * 1000,
-  ); // 24h
+  );
   return { token, code };
 };
 

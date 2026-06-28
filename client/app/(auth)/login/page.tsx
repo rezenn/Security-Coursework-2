@@ -1,293 +1,159 @@
 "use client";
-
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import Link from "next/link";
-import { authApi } from "@/app/lib/api";
-import { useAuth } from "@/app/hooks/useAuth";
-import { useRecaptcha } from "@/app/hooks/useRecaptcha";
+import { Eye, EyeOff, LogIn, ShieldCheck } from "lucide-react";
+import { toast } from "sonner";
+import { useAuth } from "@/context/authContext";
+import { Spinner, ErrorAlert } from "@/components/shared";
+
+const schema = z.object({
+  email: z.string().email("Valid email required"),
+  password: z.string().min(1, "Password required"),
+  mfaToken: z.string().optional(),
+});
+type Form = z.infer<typeof schema>;
 
 export default function LoginPage() {
   const { login } = useAuth();
-  const router = useRouter();
-  const { getToken, siteKey } = useRecaptcha();
-
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [mfaToken, setMfaToken] = useState("");
+  const [showPw, setShowPw] = useState(false);
   const [mfaRequired, setMfaRequired] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [captchaChecking, setCaptchaChecking] = useState(false);
 
-  const handleSubmit = async () => {
+  const { register, handleSubmit, formState: { errors } } = useForm<Form>({ resolver: zodResolver(schema) });
+
+  const onSubmit = async (data: Form) => {
     setError("");
     setLoading(true);
     try {
-      setCaptchaChecking(true);
-      const captchaToken = await getToken("login");
-      setCaptchaChecking(false);
-
-      let result;
-      try {
-        result = await authApi.login({
-          email,
-          password,
-          captchaToken,
-          mfaToken: mfaRequired && mfaToken ? mfaToken : undefined,
-        });
-      } catch (e: unknown) {
-        const err = e as {
-          error?: string;
-          mfaRequired?: boolean;
-          tempToken?: string;
-          message?: string;
-          status?: number;
-        };
-        if (err.mfaRequired === true || err.error === "MFA_REQUIRED") {
-          sessionStorage.setItem("mfaEmail", email);
-          sessionStorage.setItem("mfaPassword", password);
-          setMfaRequired(true);
-          setLoading(false);
-          return;
-        }
-        setError(
-          err.error || err.message || "Sign in failed. Please try again.",
+      // Get reCAPTCHA token
+      let captchaToken: string | undefined;
+      if (typeof window !== "undefined" && (window as any).grecaptcha) {
+        captchaToken = await (window as any).grecaptcha.execute(
+          process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY,
+          { action: "login" },
         );
-        setLoading(false);
-        return;
       }
-
-      if ("accessToken" in result) {
-        sessionStorage.removeItem("mfaEmail");
-        sessionStorage.removeItem("mfaPassword");
-        login(result.accessToken, result.user);
-        router.push("/dashboard");
+      const result = await login(data.email, data.password, captchaToken, data.mfaToken);
+      if (result.mfaRequired) {
+        setMfaRequired(true);
+        toast.info("Enter your 6-digit MFA code to continue");
       }
-    } catch (e: unknown) {
-      setCaptchaChecking(false);
-      const err = e as { error?: string; message?: string };
-      setError(err.error || err.message || "Sign in failed. Please try again.");
+    } catch (err: any) {
+      const msg = err?.response?.data?.error || err?.message || "Login failed";
+      setError(msg);
+      if (msg.includes("locked")) {
+        toast.error("Account locked. Try again after 15 minutes.");
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  const buttonLabel = () => {
-    if (captchaChecking) return "Verifying CAPTCHA…";
-    if (loading) return "Signing in…";
-    if (mfaRequired) return "Verify code";
-    return "Sign in";
-  };
-
   return (
-    <div className="w-full max-w-md px-4">
-      <div
-        style={{
-          background: "var(--vw-card)",
-          border: "1px solid var(--vw-border)",
-        }}
-        className="rounded-2xl p-8 shadow-2xl"
-      >
-        <div className="mb-8">
-          <div className="flex items-center gap-2 mb-6">
-            <div
-              style={{ background: "var(--vw-accent)" }}
-              className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-sm font-bold"
-            >
-              G
-            </div>
-            <span
-              style={{ color: "var(--vw-text)" }}
-              className="font-semibold text-sm tracking-wide"
-            >
-              GyanKosh
-            </span>
+    <>
+      {/* reCAPTCHA v3 */}
+      <script
+        src={`https://www.google.com/recaptcha/api.js?render=${process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY}`}
+        async
+        defer
+      />
+
+      <div className="card">
+        {/* Header */}
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-10 h-10 bg-blue-600/20 rounded-xl flex items-center justify-center">
+            <LogIn className="text-blue-400" size={18} />
           </div>
-          <h1
-            style={{ color: "var(--vw-text)" }}
-            className="text-2xl font-semibold"
-          >
-            {mfaRequired ? "Two-factor auth" : "Sign in"}
-          </h1>
-          <p style={{ color: "var(--vw-muted)" }} className="text-sm mt-1">
-            {mfaRequired
-              ? "Enter the 6-digit code from your authenticator app."
-              : "Access your academic resources securely."}
-          </p>
+          <div>
+            <h1 className="text-xl font-bold text-white">Welcome back</h1>
+            <p className="text-slate-400 text-sm">Sign in to your account</p>
+          </div>
         </div>
 
-        {error && (
-          <div
-            style={{
-              background: "var(--vw-error-bg)",
-              border: "1px solid var(--vw-error-border)",
-              color: "var(--vw-error-text)",
-            }}
-            className="mb-5 p-3 rounded-lg text-sm"
-          >
-            {error}
-          </div>
-        )}
+        {error && <div className="mb-4"><ErrorAlert message={error} /></div>}
 
-        {!mfaRequired ? (
-          <div className="space-y-4">
-            {[
-              {
-                label: "Email",
-                type: "email",
-                value: email,
-                onChange: setEmail,
-                placeholder: "you@example.com",
-              },
-              {
-                label: "Password",
-                type: "password",
-                value: password,
-                onChange: setPassword,
-                placeholder: "••••••••••••",
-              },
-            ].map((f) => (
-              <div key={f.label}>
-                <label
-                  style={{ color: "var(--vw-muted)" }}
-                  className="block text-xs font-medium mb-1.5 uppercase tracking-wider"
-                >
-                  {f.label}
-                </label>
-                <input
-                  type={f.type}
-                  value={f.value}
-                  onChange={(e) => f.onChange(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
-                  placeholder={f.placeholder}
-                  autoComplete={
-                    f.type === "email" ? "email" : "current-password"
-                  }
-                  style={{
-                    background: "var(--vw-input-bg)",
-                    border: "1px solid var(--vw-border)",
-                    color: "var(--vw-text)",
-                  }}
-                  className="w-full px-3.5 py-2.5 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all placeholder:text-gray-600"
-                />
-              </div>
-            ))}
-            <div className="text-right">
-              <Link
-                href="/forgot-password"
-                style={{ color: "var(--vw-accent)" }}
-                className="text-xs hover:underline"
-              >
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
+          <div>
+            <label className="label">Email</label>
+            <input
+              {...register("email")}
+              type="email"
+              placeholder="you@example.com"
+              className="input"
+              autoComplete="email"
+            />
+            {errors.email && <p className="field-error">{errors.email.message}</p>}
+          </div>
+
+          <div>
+            <div className="flex justify-between mb-1">
+              <label className="label mb-0">Password</label>
+              <Link href="/forgot-password" className="text-xs text-blue-400 hover:text-blue-300">
                 Forgot password?
               </Link>
             </div>
-          </div>
-        ) : (
-          <div>
-            <p style={{ color: "var(--vw-muted)" }} className="text-sm mb-4">
-              Signing in as{" "}
-              <strong style={{ color: "var(--vw-text)" }}>{email}</strong>
-            </p>
-            <label
-              style={{ color: "var(--vw-muted)" }}
-              className="block text-xs font-medium mb-1.5 uppercase tracking-wider"
-            >
-              Authenticator Code
-            </label>
-            <input
-              type="text"
-              inputMode="numeric"
-              maxLength={6}
-              value={mfaToken}
-              onChange={(e) => setMfaToken(e.target.value.replace(/\D/g, ""))}
-              onKeyDown={(e) =>
-                e.key === "Enter" && mfaToken.length === 6 && handleSubmit()
-              }
-              placeholder="000000"
-              autoComplete="one-time-code"
-              autoFocus
-              style={{
-                background: "var(--vw-input-bg)",
-                border: "1px solid var(--vw-border)",
-                color: "var(--vw-text)",
-              }}
-              className="w-full px-3.5 py-2.5 rounded-lg text-center text-xl font-semibold tracking-[0.5em] focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all"
-            />
-            <button
-              onClick={() => {
-                setMfaRequired(false);
-                setMfaToken("");
-                sessionStorage.removeItem("mfaEmail");
-                sessionStorage.removeItem("mfaPassword");
-              }}
-              style={{ color: "var(--vw-muted)" }}
-              className="mt-3 text-xs hover:underline"
-            >
-              ← Back to sign in
-            </button>
-          </div>
-        )}
-
-        {/* CAPTCHA checking indicator */}
-        {captchaChecking && (
-          <div
-            style={{ color: "var(--vw-muted)" }}
-            className="mt-3 flex items-center gap-2 text-xs"
-          >
-            <svg
-              className="h-3 w-3 animate-spin"
-              viewBox="0 0 24 24"
-              fill="none"
-            >
-              <circle
-                className="opacity-25"
-                cx="12"
-                cy="12"
-                r="10"
-                stroke="currentColor"
-                strokeWidth="4"
+            <div className="relative">
+              <input
+                {...register("password")}
+                type={showPw ? "text" : "password"}
+                placeholder="Your password"
+                className="input pr-10"
+                autoComplete="current-password"
               />
-              <path
-                className="opacity-75"
-                fill="currentColor"
-                d="M4 12a8 8 0 018-8v8H4z"
-              />
-            </svg>
-            Verifying reCAPTCHA…
+              <button
+                type="button"
+                onClick={() => setShowPw(!showPw)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200"
+              >
+                {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+            {errors.password && <p className="field-error">{errors.password.message}</p>}
           </div>
-        )}
 
-        <button
-          onClick={handleSubmit}
-          disabled={
-            loading || captchaChecking || (mfaRequired && mfaToken.length !== 6)
-          }
-          style={{
-            background:
-              loading || captchaChecking
-                ? "var(--vw-border)"
-                : "var(--vw-accent)",
-          }}
-          className="mt-6 w-full py-2.5 rounded-lg text-white font-medium text-sm transition-all hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {buttonLabel()}
-        </button>
+          {/* MFA field — shown only after first step */}
+          {mfaRequired && (
+            <div>
+              <label className="label">
+                <ShieldCheck size={14} className="inline mr-1 text-blue-400" />
+                6-digit MFA Code
+              </label>
+              <input
+                {...register("mfaToken")}
+                type="text"
+                inputMode="numeric"
+                maxLength={6}
+                placeholder="000000"
+                className="input tracking-[0.3em] text-center text-lg"
+                autoFocus
+              />
+              <p className="text-xs text-slate-500 mt-1">
+                Open your authenticator app and enter the current code. Or use a backup code (XX-XX format).
+              </p>
+            </div>
+          )}
 
-        <p
-          style={{ color: "var(--vw-muted)" }}
-          className="mt-5 text-center text-sm"
-        >
-          No account?{" "}
-          <Link
-            href="/register"
-            style={{ color: "var(--vw-accent)" }}
-            className="hover:underline font-medium"
-          >
+          <button type="submit" disabled={loading} className="btn-primary w-full flex items-center justify-center gap-2 mt-2">
+            {loading ? <Spinner size={16} /> : <LogIn size={16} />}
+            {mfaRequired ? "Verify & Sign In" : "Sign In"}
+          </button>
+        </form>
+
+        <p className="text-center text-slate-400 text-sm mt-6">
+          Don&apos;t have an account?{" "}
+          <Link href="/register" className="text-blue-400 hover:text-blue-300 font-medium">
             Create one
           </Link>
         </p>
+
+        <p className="text-center text-xs text-slate-600 mt-4">
+          Protected by reCAPTCHA v3 — rate limiting and account lockout active
+        </p>
       </div>
-    </div>
+    </>
   );
 }
