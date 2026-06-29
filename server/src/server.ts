@@ -7,6 +7,7 @@ import hpp from "hpp";
 import mongoSanitize from "express-mongo-sanitize";
 import cookieParser from "cookie-parser";
 import morgan from "morgan";
+import passport from "./config/passport.config";
 import config from "./config/env.config";
 import connectDB from "./config/database.config";
 import logger, { logSecurityEvent } from "./utils/logger.utils";
@@ -25,10 +26,9 @@ import {
 
 const app = express();
 
-// ── Trust proxy (correct IP behind Nginx / Docker) ────────────────────────────
 app.set("trust proxy", 1);
 
-// ── Security headers (helmet) ─────────────────────────────────────────────────
+// ── Security headers ──────────────────────────────────────────────────────────
 app.use(
   helmet({
     contentSecurityPolicy: {
@@ -54,22 +54,16 @@ app.use(
   }),
 );
 
-// ── Stripe webhook needs raw body — mount BEFORE json parser ──────────────────
-// (raw body parser is applied inside the route itself via express.raw)
-
 // ── Body parsers ──────────────────────────────────────────────────────────────
 app.use(express.json({ limit: "15kb" }));
 app.use(express.urlencoded({ extended: true, limit: "15kb" }));
 app.use(cookieParser(config.cookie.secret));
 
-// ── HTTP parameter pollution prevention ──────────────────────────────────────
+// ── Security middleware ───────────────────────────────────────────────────────
 app.use(hpp());
-
-// ── NoSQL injection prevention (strips $ and . keys) ─────────────────────────
 app.use(mongoSanitize());
 
-// ── XSS prevention — inline sanitizer (replaces deprecated xss-clean) ────────
-// Recursively escapes < > & " ' in all string values of req.body/query/params
+// ── Inline XSS sanitizer (replaces deprecated xss-clean) ─────────────────────
 const escapeHtml = (str: string): string =>
   str
     .replace(/&/g, "&amp;")
@@ -97,6 +91,9 @@ app.use((req: Request, _res: Response, next: NextFunction) => {
   next();
 });
 
+// ── Passport (Google OAuth — stateless) ───────────────────────────────────────
+app.use(passport.initialize());
+
 // ── Request logging ───────────────────────────────────────────────────────────
 app.use(
   morgan("combined", {
@@ -107,8 +104,8 @@ app.use(
 // ── Rate limiters ─────────────────────────────────────────────────────────────
 app.use(createGlobalRateLimiter());
 app.use("/api/auth/login", createLoginRateLimiter());
-app.use("/api/auth/request-password-reset", createLoginRateLimiter());
 app.use("/api/auth/register", createLoginRateLimiter());
+app.use("/api/auth/request-password-reset", createLoginRateLimiter());
 
 // ── Routes ────────────────────────────────────────────────────────────────────
 app.use("/api/auth", authRoutes);
@@ -117,30 +114,23 @@ app.use("/api/profile", profileRouter);
 app.use("/api/payments", paymentRouter);
 app.use("/api/admin", adminRouter);
 
-// ── Health check ──────────────────────────────────────────────────────────────
+// ── Health ────────────────────────────────────────────────────────────────────
 app.get("/api/health", (_req: Request, res: Response) => {
-  res.json({ status: "ok", env: config.env, timestamp: new Date().toISOString() });
+  res.json({ status: "ok", env: config.env, ts: new Date().toISOString() });
 });
 
-// ── 404 ───────────────────────────────────────────────────────────────────────
 app.use((_req: Request, res: Response) => {
   res.status(404).json({ error: "Route not found" });
 });
 
-// ── Global error handler ──────────────────────────────────────────────────────
 app.use(errorHandler);
 
 // ── Bootstrap ─────────────────────────────────────────────────────────────────
 const start = async (): Promise<void> => {
   await connectDB();
   app.listen(config.port, () => {
-    logger.info(
-      `GyanKosh server running on port ${config.port} [${config.env}]`,
-    );
-    logSecurityEvent("server_started", null, "system", {
-      port: config.port,
-      env: config.env,
-    });
+    logger.info(`GyanKosh server running on :${config.port} [${config.env}]`);
+    logSecurityEvent("server_started", null, "system", { port: config.port });
   });
 };
 

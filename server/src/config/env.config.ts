@@ -24,7 +24,8 @@ const config = {
     accessSecret:
       process.env.JWT_ACCESS_SECRET || "dev_access_secret_min_32_chars_padded",
     refreshSecret:
-      process.env.JWT_REFRESH_SECRET || "dev_refresh_secret_min_32_chars_padded",
+      process.env.JWT_REFRESH_SECRET ||
+      "dev_refresh_secret_min_32_chars_padded",
     accessExpires: process.env.JWT_ACCESS_EXPIRES_IN || "15m",
     refreshExpires: process.env.JWT_REFRESH_EXPIRES_IN || "7d",
   },
@@ -57,11 +58,22 @@ const config = {
     secretKey: process.env.KHALTI_SECRET_KEY || "",
   },
 
+  google: {
+    clientId: process.env.GOOGLE_CLIENT_ID || "",
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
+    callbackUrl:
+      process.env.GOOGLE_CALLBACK_URL ||
+      "http://localhost:5000/api/auth/google/callback",
+  },
+
   rateLimit: {
     windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || "900000", 10),
     max: parseInt(process.env.RATE_LIMIT_MAX || "100", 10),
     loginMax: parseInt(process.env.LOGIN_RATE_LIMIT_MAX || "10", 10),
-    loginWindowMs: parseInt(process.env.LOGIN_RATE_LIMIT_WINDOW_MS || "900000", 10),
+    loginWindowMs: parseInt(
+      process.env.LOGIN_RATE_LIMIT_WINDOW_MS || "900000",
+      10,
+    ),
   },
 
   cookie: {

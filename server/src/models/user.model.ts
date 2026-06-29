@@ -8,6 +8,11 @@ export enum UserRole {
   ADMIN = "admin",
 }
 
+export enum AuthProvider {
+  LOCAL = "local",
+  GOOGLE = "google",
+}
+
 interface IPasswordHistory {
   hash: string;
   changedAt: Date;
@@ -19,10 +24,11 @@ export interface IUser extends Document {
   username: string;
   password: string;
   role: UserRole;
+  provider: AuthProvider;
+  googleId: string | null;
   isActive: boolean;
   isEmailVerified: boolean;
 
-  // Profile
   profile: {
     firstName: string;
     lastName: string;
@@ -30,7 +36,6 @@ export interface IUser extends Document {
     avatarUrl: string | null;
   };
 
-  // MFA
   mfa: {
     enabled: boolean;
     secret: string | null;
@@ -38,18 +43,15 @@ export interface IUser extends Document {
     setupPending: boolean;
   };
 
-  // Password security
   passwordHistory: IPasswordHistory[];
   passwordChangedAt: Date;
   passwordExpiresAt: Date;
 
-  // Brute-force protection
   failedLoginAttempts: number;
   lockedUntil: Date | null;
   lastLoginAt: Date | null;
   lastLoginIp: string | null;
 
-  // Tokens
   emailVerificationToken: string | null;
   emailVerificationCode: string | null;
   emailVerificationExpires: Date | null;
@@ -59,7 +61,6 @@ export interface IUser extends Document {
   passwordResetExpires: Date | null;
   passwordResetCodeExpires: Date | null;
 
-  // Active sessions
   activeRefreshTokens: {
     tokenHash: string;
     userAgent: string;
@@ -68,13 +69,11 @@ export interface IUser extends Document {
     expiresAt: Date;
   }[];
 
-  // Enrolled courses
   enrolledCourses: mongoose.Types.ObjectId[];
 
   createdAt: Date;
   updatedAt: Date;
 
-  // Methods
   comparePassword(candidate: string): Promise<boolean>;
   isPasswordInHistory(candidate: string): Promise<boolean>;
   isLocked(): boolean;
@@ -103,19 +102,24 @@ const userSchema = new Schema<IUser>(
       trim: true,
       minlength: 3,
       maxlength: 30,
-      match: [/^[a-zA-Z0-9_-]+$/, "Invalid username characters"],
     },
     password: {
       type: String,
-      required: [true, "Password is required"],
       minlength: 12,
       select: false,
+      // Not required — Google OAuth users have no password
     },
     role: {
       type: String,
       enum: Object.values(UserRole),
       default: UserRole.USER,
     },
+    provider: {
+      type: String,
+      enum: Object.values(AuthProvider),
+      default: AuthProvider.LOCAL,
+    },
+    googleId: { type: String, default: null, sparse: true },
     isActive: { type: Boolean, default: true },
     isEmailVerified: { type: Boolean, default: false },
 
@@ -202,12 +206,13 @@ const userSchema = new Schema<IUser>(
   },
 );
 
+userSchema.index({ googleId: 1 }, { sparse: true });
 userSchema.index({ passwordResetToken: 1 }, { sparse: true });
 userSchema.index({ emailVerificationToken: 1 }, { sparse: true });
 
-// Hash password on save
+// Hash password on save (only if set and modified)
 userSchema.pre("save", async function (next) {
-  if (!this.isModified("password")) return next();
+  if (!this.isModified("password") || !this.password) return next();
   this.password = await bcrypt.hash(this.password, 12);
   this.passwordChangedAt = new Date();
   this.passwordExpiresAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
@@ -217,6 +222,7 @@ userSchema.pre("save", async function (next) {
 userSchema.methods.comparePassword = async function (
   candidate: string,
 ): Promise<boolean> {
+  if (!this.password) return false;
   return bcrypt.compare(candidate, this.password);
 };
 
@@ -254,10 +260,7 @@ userSchema.methods.isPasswordExpired = function (): boolean {
   return this.passwordExpiresAt < new Date();
 };
 
-userSchema.methods.generatePasswordResetToken = function (): {
-  token: string;
-  code: string;
-} {
+userSchema.methods.generatePasswordResetToken = function () {
   const token = crypto.randomBytes(32).toString("hex");
   const code = Math.floor(100000 + Math.random() * 900000).toString();
   this.passwordResetToken = crypto
@@ -273,10 +276,7 @@ userSchema.methods.generatePasswordResetToken = function (): {
   return { token, code };
 };
 
-userSchema.methods.generateEmailVerificationToken = function (): {
-  token: string;
-  code: string;
-} {
+userSchema.methods.generateEmailVerificationToken = function () {
   const token = crypto.randomBytes(32).toString("hex");
   const code = Math.floor(100000 + Math.random() * 900000).toString();
   this.emailVerificationToken = crypto

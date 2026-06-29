@@ -1,9 +1,11 @@
 import { Router } from "express";
 import { body, param } from "express-validator";
+import passport from "../config/passport.config";
 import {
   confirmMFASetup,
   createMFASetup,
   getMe,
+  googleCallback,
   login,
   logout,
   refreshToken,
@@ -18,20 +20,33 @@ import { verifyRecaptcha } from "../middleware/recaptcha.middleware";
 
 const router = Router();
 
+// ── Local auth ────────────────────────────────────────────────────────────────
 router.post(
   "/register",
   [
-    body("email").isEmail().normalizeEmail().withMessage("Valid email required"),
-    body("username").isLength({ min: 3, max: 30 }).matches(/^[a-zA-Z0-9_-]+$/).withMessage("Username 3-30 chars (letters, numbers, _ -)"),
-    body("password").isLength({ min: 12 }).withMessage("Password must be at least 12 characters"),
+    body("email").isEmail().normalizeEmail(),
+    body("username")
+      .isLength({ min: 3, max: 30 })
+      .matches(/^[a-zA-Z0-9_-]+$/),
+    body("password").isLength({ min: 12 }),
   ],
   validateRequest,
   verifyRecaptcha,
   register,
 );
 
-router.get("/verify-email/:token", [param("token").isLength({ min: 64, max: 64 })], validateRequest, verifyEmail);
-router.post("/verify-email/:token", [param("token").isLength({ min: 64, max: 64 })], validateRequest, verifyEmail);
+router.get(
+  "/verify-email/:token",
+  [param("token").isLength({ min: 64, max: 64 })],
+  validateRequest,
+  verifyEmail,
+);
+router.post(
+  "/verify-email/:token",
+  [param("token").isLength({ min: 64, max: 64 })],
+  validateRequest,
+  verifyEmail,
+);
 router.post(
   "/verify-email",
   [body("email").isEmail(), body("code").isLength({ min: 6, max: 6 })],
@@ -42,8 +57,8 @@ router.post(
 router.post(
   "/login",
   [
-    body("email").isEmail().normalizeEmail().withMessage("Valid email required"),
-    body("password").isString().notEmpty().withMessage("Password required"),
+    body("email").isEmail().normalizeEmail(),
+    body("password").isString().notEmpty(),
   ],
   validateRequest,
   verifyRecaptcha,
@@ -75,7 +90,11 @@ router.post(
 
 router.post(
   "/reset-password",
-  [body("email").isEmail(), body("code").isLength({ min: 6, max: 6 }), body("password").isLength({ min: 12 })],
+  [
+    body("email").isEmail(),
+    body("code").isLength({ min: 6, max: 6 }),
+    body("password").isLength({ min: 12 }),
+  ],
   validateRequest,
   verifyRecaptcha,
   resetPassword,
@@ -89,5 +108,31 @@ router.post(
   requireAuth,
   confirmMFASetup,
 );
+
+// ── Google OAuth ──────────────────────────────────────────────────────────────
+// Step 1: redirect to Google
+router.get(
+  "/google",
+  passport.authenticate("google", {
+    scope: ["profile", "email"],
+    session: false,
+  }),
+);
+
+// Step 2: Google redirects back here
+router.get(
+  "/google/callback",
+  passport.authenticate("google", {
+    session: false,
+    failureRedirect: "/api/auth/google/failure",
+  }),
+  googleCallback,
+);
+
+router.get("/google/failure", (_req, res) => {
+  res.redirect(
+    `${process.env.FRONTEND_URL || "http://localhost:3000"}/login?error=google_failed`,
+  );
+});
 
 export default router;
