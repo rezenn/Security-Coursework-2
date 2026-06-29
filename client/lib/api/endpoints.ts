@@ -9,7 +9,6 @@ export const API = {
     VERIFY_EMAIL_CODE: "/auth/verify-email",
     REQUEST_RESET: "/auth/request-password-reset",
     RESET_PASSWORD: (token: string) => `/auth/reset-password/${token}`,
-    RESET_PASSWORD_CODE: "/auth/reset-password",
     MFA_SETUP: "/auth/mfa/setup",
     MFA_CONFIRM: "/auth/mfa/confirm",
   },
@@ -24,7 +23,8 @@ export const API = {
     EXPORT: "/profile/export",
   },
   PAYMENTS: {
-    CREATE_INTENT: "/payments/create-intent",
+    INITIATE: "/payments/initiate",
+    VERIFY: "/payments/verify",
     MY_TRANSACTIONS: "/payments/my-transactions",
   },
   ADMIN: {
@@ -34,7 +34,6 @@ export const API = {
     DELETE_USER: (id: string) => `/admin/users/${id}`,
     LOGS: "/admin/logs",
     COURSES: "/admin/courses",
-    CREATE_COURSE: "/admin/courses",
     UPDATE_COURSE: (id: string) => `/admin/courses/${id}`,
     DELETE_COURSE: (id: string) => `/admin/courses/${id}`,
     ADD_LESSON: (id: string) => `/admin/courses/${id}/lessons`,

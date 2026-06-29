@@ -11,24 +11,6 @@ dotenv.config({ path: envPath });
 
 const env = process.env.NODE_ENV || "development";
 
-// In production, require strong secrets
-if (env === "production") {
-  const required = [
-    "MONGO_URI",
-    "JWT_ACCESS_SECRET",
-    "JWT_REFRESH_SECRET",
-    "ENCRYPTION_KEY",
-    "COOKIE_SECRET",
-    "STRIPE_SECRET_KEY",
-    "STRIPE_WEBHOOK_SECRET",
-  ];
-  required.forEach((k) => {
-    if (!process.env[k]) throw new Error(`FATAL: Missing env var ${k}`);
-  });
-  if ((process.env.JWT_ACCESS_SECRET?.length ?? 0) < 64)
-    throw new Error("FATAL: JWT_ACCESS_SECRET must be ≥64 chars in production");
-}
-
 const config = {
   env,
   port: parseInt(process.env.PORT || "5000", 10),
@@ -42,8 +24,7 @@ const config = {
     accessSecret:
       process.env.JWT_ACCESS_SECRET || "dev_access_secret_min_32_chars_padded",
     refreshSecret:
-      process.env.JWT_REFRESH_SECRET ||
-      "dev_refresh_secret_min_32_chars_padded",
+      process.env.JWT_REFRESH_SECRET || "dev_refresh_secret_min_32_chars_padded",
     accessExpires: process.env.JWT_ACCESS_EXPIRES_IN || "15m",
     refreshExpires: process.env.JWT_REFRESH_EXPIRES_IN || "7d",
   },
@@ -54,9 +35,7 @@ const config = {
       .slice(0, 32),
   },
 
-  mfa: {
-    appName: process.env.APP_NAME || "GyanKosh",
-  },
+  mfa: { appName: process.env.APP_NAME || "GyanKosh" },
 
   email: {
     host: process.env.SMTP_HOST || "smtp.gmail.com",
@@ -73,19 +52,16 @@ const config = {
     enabled: env === "production" && !!process.env.RECAPTCHA_SECRET_KEY,
   },
 
-  stripe: {
-    secretKey: process.env.STRIPE_SECRET_KEY || "",
-    webhookSecret: process.env.STRIPE_WEBHOOK_SECRET || "",
+  // Khalti payment gateway
+  khalti: {
+    secretKey: process.env.KHALTI_SECRET_KEY || "",
   },
 
   rateLimit: {
     windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || "900000", 10),
     max: parseInt(process.env.RATE_LIMIT_MAX || "100", 10),
     loginMax: parseInt(process.env.LOGIN_RATE_LIMIT_MAX || "10", 10),
-    loginWindowMs: parseInt(
-      process.env.LOGIN_RATE_LIMIT_WINDOW_MS || "900000",
-      10,
-    ),
+    loginWindowMs: parseInt(process.env.LOGIN_RATE_LIMIT_WINDOW_MS || "900000", 10),
   },
 
   cookie: {
@@ -94,10 +70,7 @@ const config = {
 
   lockout: {
     maxFailedAttempts: parseInt(process.env.MAX_LOGIN_ATTEMPTS || "5", 10),
-    durationMinutes: parseInt(
-      process.env.LOCKOUT_DURATION_MINUTES || "15",
-      10,
-    ),
+    durationMinutes: parseInt(process.env.LOCKOUT_DURATION_MINUTES || "15", 10),
   },
 
   ipAllowlist: (process.env.IP_ALLOWLIST || "127.0.0.1,::1")

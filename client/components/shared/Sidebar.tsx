@@ -5,15 +5,15 @@ import { useAuth } from "@/context/authContext";
 import { Avatar, RoleBadge } from "@/components/shared";
 import {
   BookOpen, LayoutDashboard, User, LogOut,
-  ShieldCheck, Users, FileText, CreditCard,
-  Settings, GraduationCap, BarChart3,
+  Shield, Users, FileText, CreditCard,
+  GraduationCap, BarChart3,
 } from "lucide-react";
 import clsx from "clsx";
 
 const userNav = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/courses", label: "Browse Courses", icon: BookOpen },
-  { href: "/profile", label: "My Profile", icon: User },
+  { href: "/courses", label: "Courses", icon: BookOpen },
+  { href: "/profile", label: "Profile", icon: User },
 ];
 
 const adminNav = [
@@ -24,20 +24,30 @@ const adminNav = [
   { href: "/admin/logs", label: "Audit Logs", icon: FileText },
 ];
 
-function NavItem({ href, label, icon: Icon }: { href: string; label: string; icon: React.ElementType }) {
+function NavItem({
+  href,
+  label,
+  icon: Icon,
+}: {
+  href: string;
+  label: string;
+  icon: React.ElementType;
+}) {
   const pathname = usePathname();
-  const active = pathname === href || (href !== "/admin" && href !== "/dashboard" && pathname.startsWith(href));
+  const isExact = href === "/admin" || href === "/dashboard";
+  const active = isExact ? pathname === href : pathname.startsWith(href);
+
   return (
     <Link
       href={href}
       className={clsx(
-        "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
+        "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors",
         active
-          ? "bg-blue-600/20 text-blue-400 border border-blue-500/30"
-          : "text-slate-400 hover:text-white hover:bg-slate-700/50",
+          ? "bg-blue-600/15 text-blue-400 font-medium"
+          : "text-slate-400 hover:text-slate-200 hover:bg-slate-700/50",
       )}
     >
-      <Icon size={16} />
+      <Icon size={15} className="flex-shrink-0" />
       {label}
     </Link>
   );
@@ -48,44 +58,46 @@ export function AppSidebar() {
   const navItems = isAdmin ? adminNav : userNav;
 
   return (
-    <aside className="w-64 bg-slate-800 border-r border-slate-700 flex flex-col h-screen sticky top-0">
+    <aside className="w-56 bg-slate-800 border-r border-slate-700 flex flex-col h-screen sticky top-0 flex-shrink-0">
       {/* Logo */}
-      <div className="p-6 border-b border-slate-700">
-        <div className="flex items-center gap-2">
-          <BookOpen className="text-blue-500" size={22} />
-          <span className="text-lg font-bold text-white">GyanKosh</span>
-        </div>
+      <div className="px-5 py-5 border-b border-slate-700">
+        <Link href={isAdmin ? "/admin" : "/dashboard"} className="flex items-center gap-2.5">
+          <div className="w-7 h-7 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
+            <BookOpen size={14} className="text-white" />
+          </div>
+          <span className="font-bold text-white text-base">GyanKosh</span>
+        </Link>
         {isAdmin && (
-          <div className="mt-2 flex items-center gap-1.5 text-xs text-purple-400">
-            <ShieldCheck size={12} />
+          <div className="flex items-center gap-1.5 mt-2 text-xs text-purple-400">
+            <Shield size={11} />
             Admin Panel
           </div>
         )}
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+      <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
         {navItems.map((item) => (
           <NavItem key={item.href} {...item} />
         ))}
       </nav>
 
-      {/* User */}
+      {/* User section */}
       {user && (
-        <div className="p-4 border-t border-slate-700">
-          <div className="flex items-center gap-3 mb-3">
+        <div className="px-3 py-4 border-t border-slate-700">
+          <div className="flex items-center gap-2.5 mb-3 px-2">
             <Avatar name={user.username} size="sm" />
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium text-white truncate">{user.username}</p>
+              <p className="text-xs font-medium text-white truncate">{user.username}</p>
               <RoleBadge role={user.role} />
             </div>
           </div>
           <button
             onClick={logout}
-            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs text-slate-400 hover:text-red-400 hover:bg-red-500/8 transition-colors"
           >
-            <LogOut size={14} />
-            Log out
+            <LogOut size={13} />
+            Sign out
           </button>
         </div>
       )}

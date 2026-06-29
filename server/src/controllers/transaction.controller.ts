@@ -1,49 +1,51 @@
 import { Request, Response } from "express";
-import { createPaymentIntent, handleStripeWebhook } from "../services/transaction.service";
+import {
+  initiateKhaltiPayment,
+  verifyKhaltiPayment,
+} from "../services/transaction.service";
 import Transaction from "../models/transaction.model";
 import { logSecurityEvent } from "../utils/logger.utils";
 
 const ip = (req: Request) => req.ip || "unknown";
 
-// POST /api/payments/create-intent
-export const createIntent = async (req: Request, res: Response): Promise<void> => {
+// POST /api/payments/initiate
+export const initiatePayment = async (req: Request, res: Response): Promise<void> => {
   if (!req.user) { res.status(401).json({ error: "Authentication required" }); return; }
-
   const { courseId } = req.body;
   if (!courseId) { res.status(400).json({ error: "courseId is required" }); return; }
 
   try {
-    const result = await createPaymentIntent(req.user.sub, courseId, ip(req));
+    const result = await initiateKhaltiPayment(req.user.sub, courseId, ip(req));
     res.status(200).json(result);
   } catch (err: any) {
-    if (err.message === "ALREADY_ENROLLED") {
-      res.status(409).json({ error: "You are already enrolled in this course." });
-      return;
-    }
-    if (err.message === "Course not found") {
-      res.status(404).json({ error: "Course not found" });
-      return;
-    }
-    throw err;
+    const msgMap: Record<string, [number, string]> = {
+      ALREADY_ENROLLED: [409, "You are already enrolled in this course."],
+      COURSE_NOT_FOUND: [404, "Course not found or not published."],
+      MIN_AMOUNT: [400, "Course price must be at least Rs. 10 for Khalti payments."],
+    };
+    const [status, message] = msgMap[err.message] || [500, "Payment initiation failed."];
+    res.status(status).json({ error: message });
   }
 };
 
-// POST /api/payments/webhook — Stripe calls this
-// Raw body is needed for signature verification (applied in router)
-export const stripeWebhook = async (req: Request, res: Response): Promise<void> => {
-  const sig = req.headers["stripe-signature"] as string;
-  if (!sig) { res.status(400).json({ error: "Missing Stripe signature" }); return; }
+// POST /api/payments/verify
+export const verifyPayment = async (req: Request, res: Response): Promise<void> => {
+  if (!req.user) { res.status(401).json({ error: "Authentication required" }); return; }
+  const { pidx } = req.body;
+  if (!pidx) { res.status(400).json({ error: "pidx is required" }); return; }
 
   try {
-    await handleStripeWebhook(req.body as Buffer, sig);
-    res.status(200).json({ received: true });
+    const result = await verifyKhaltiPayment(pidx, req.user.sub, ip(req));
+    res.status(200).json(result);
   } catch (err: any) {
-    if (err.message === "INVALID_WEBHOOK_SIGNATURE") {
-      logSecurityEvent("webhook_signature_invalid", null, ip(req), {});
-      res.status(400).json({ error: "Invalid webhook signature" });
-      return;
-    }
-    throw err;
+    const msgMap: Record<string, [number, string]> = {
+      TRANSACTION_NOT_FOUND: [404, "Transaction not found."],
+      PAYMENT_NOT_COMPLETED: [402, "Khalti payment not completed."],
+      AMOUNT_MISMATCH: [400, "Payment amount mismatch — possible tampering."],
+    };
+    const [status, message] = msgMap[err.message] || [500, "Verification failed."];
+    logSecurityEvent("payment_verify_failed", req.user.sub, ip(req), { pidx, error: err.message });
+    res.status(status).json({ error: message });
   }
 };
 
@@ -56,12 +58,11 @@ export const myTransactions = async (req: Request, res: Response): Promise<void>
   res.status(200).json({ transactions: txns });
 };
 
-// GET /api/admin/transactions — admin view all
+// GET /api/admin/transactions
 export const adminListTransactions = async (req: Request, res: Response): Promise<void> => {
   const { status, page = "1", limit = "50" } = req.query;
   const filter: Record<string, unknown> = {};
   if (status) filter.status = status;
-
   const skip = (parseInt(page as string) - 1) * parseInt(limit as string);
   const [transactions, total] = await Promise.all([
     Transaction.find(filter)
@@ -72,6 +73,5 @@ export const adminListTransactions = async (req: Request, res: Response): Promis
       .limit(parseInt(limit as string)),
     Transaction.countDocuments(filter),
   ]);
-
   res.status(200).json({ transactions, total });
 };

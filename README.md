@@ -1,56 +1,56 @@
 # GyanKosh — Secure Course Selling Platform
 
-> **ST6005CEM Security Coursework 2** — Secure Web Application Design, Implementation, and Internal Penetration Testing  
+> **ST6005CEM Security Coursework 2**  
 > Student: Rijen Khadgi | Softwarica College of IT & E-Commerce (Coventry University)
 
 ---
 
 ## Table of Contents
 
-1. [Application Overview](#1-application-overview)
-2. [Technology Stack](#2-technology-stack)
+1. [Overview](#1-overview)
+2. [Tech Stack](#2-tech-stack)
 3. [Folder Structure](#3-folder-structure)
-4. [Environment Setup](#4-environment-setup)
-5. [Running the Application](#5-running-the-application)
-6. [Security Features](#6-security-features)
-7. [Role-Based Access Control](#7-role-based-access-control)
-8. [API Reference](#8-api-reference)
-9. [Docker & CI/CD](#9-docker--cicd)
-10. [Penetration Testing Guide](#10-penetration-testing-guide)
-11. [Commit Strategy](#11-commit-strategy)
-12. [References](#12-references)
+4. [Environment Variables](#4-environment-variables)
+5. [Running the App](#5-running-the-app)
+6. [Creating an Admin](#6-creating-an-admin)
+7. [Khalti Payment Setup](#7-khalti-payment-setup)
+8. [Security Features](#8-security-features)
+9. [Role-Based Access Control](#9-role-based-access-control)
+10. [API Reference](#10-api-reference)
+11. [Docker & CI/CD](#11-docker--cicd)
+12. [Penetration Testing Guide](#12-penetration-testing-guide)
+13. [Commit Strategy](#13-commit-strategy)
+14. [References](#14-references)
 
 ---
 
-## 1. Application Overview
+## 1. Overview
 
-**GyanKosh** (Nepali: *gyan* = knowledge, *kosh* = treasury) is a secure online course-selling platform. Users can browse, purchase, and access educational courses. Admins manage users, courses, transactions, and audit logs through a dedicated panel.
+**GyanKosh** (Nepali: *gyan* = knowledge, *kosh* = treasury) is a secure online course-selling platform where users can register, browse courses, pay via Khalti, and access learning content. Admins manage users, courses, transactions, and security logs through a dedicated panel.
 
-### Problem Statement
-Online learning platforms frequently expose sensitive user data and payment details due to poor security design. GyanKosh demonstrates a security-first architecture where every feature is built with threat modelling, least privilege, and zero-trust principles.
-
-### Why It's Necessary
-- Learners need assurance that their credentials and payment data are handled securely.
-- Educational content must be access-controlled so only paying users can view lessons.
-- Platform operators need comprehensive audit trails for incident response.
+**Security-first design decisions:**
+- Every feature is threat-modelled (STRIDE)
+- Zero-trust: no implicit trust between services or roles
+- Payments verified server-side with HMAC integrity checks
+- All sensitive data encrypted at rest (AES-256-GCM)
 
 ---
 
-## 2. Technology Stack
+## 2. Tech Stack
 
-| Layer | Technology | Security Justification |
-|-------|-----------|----------------------|
-| Frontend | Next.js 14 (App Router) | SSR reduces XSS surface; strict CSP headers |
-| Backend | Express.js + TypeScript | Type safety eliminates entire classes of runtime bugs |
-| Database | MongoDB Atlas + Mongoose | `express-mongo-sanitize` prevents NoSQL injection |
-| Auth | JWT (HS256) + HttpOnly cookies | Tokens signed with 64-char secrets; refresh token rotation |
-| MFA | TOTP (speakeasy) + backup codes | RFC 6238 compliant; AES-256-GCM encrypted secrets at rest |
-| Payments | Stripe + HMAC integrity | PCI-DSS compliant; webhook signature verification |
-| Password hashing | bcrypt (cost 12) | Adaptive; resistant to GPU cracking |
-| Rate limiting | express-rate-limit | IP-based with allowlist for safe IPs |
-| Logging | Winston + daily-rotate-file | Structured JSON audit logs; sensitive fields redacted |
-| Containers | Docker + docker-compose | Reproducible, isolated environments |
-| CI/CD | GitHub Actions | Automated typecheck, lint (SAST), `npm audit`, Gitleaks |
+| Layer | Choice | Security Reason |
+|-------|--------|----------------|
+| Frontend | Next.js 14 (App Router) | SSR reduces XSS surface; strict CSP |
+| Backend | Express + TypeScript | Type safety eliminates runtime bugs |
+| Database | MongoDB Atlas + Mongoose | `express-mongo-sanitize` blocks NoSQL injection |
+| Auth | JWT HS256 + HttpOnly cookies | Short-lived access tokens + refresh rotation |
+| MFA | TOTP (speakeasy) + backup codes | RFC 6238; secrets AES-256-GCM encrypted |
+| Payments | Khalti (Nepal) + HMAC | Amount integrity verified server-side |
+| Passwords | bcrypt cost 12 + zxcvbn | Adaptive hashing; real-time strength feedback |
+| Rate limiting | express-rate-limit + IP allowlist | Brute-force prevention per endpoint |
+| Logging | Winston daily-rotate | Structured JSON; sensitive data redacted |
+| CI/CD | GitHub Actions | TypeScript + ESLint (SAST) + npm audit + Gitleaks |
+| Containers | Docker + docker-compose | Reproducible; non-root users |
 
 ---
 
@@ -60,115 +60,113 @@ Online learning platforms frequently expose sensitive user data and payment deta
 gyankosh/
 ├── .github/
 │   └── workflows/
-│       └── ci.yml                  # GitHub Actions: typecheck + lint + npm audit + Gitleaks
-├── client/                         # Next.js 14 frontend
+│       └── ci.yml                        # TypeCheck → ESLint → npm audit → Gitleaks → Docker
+├── client/                               # Next.js 14 frontend
 │   ├── app/
-│   │   ├── (auth)/                 # Auth route group (no sidebar)
-│   │   │   ├── layout.tsx
-│   │   │   ├── login/page.tsx      # Login — reCAPTCHA v3, MFA support, role-based redirect
-│   │   │   ├── register/page.tsx   # Register — real-time zxcvbn password meter
+│   │   ├── (auth)/                       # Auth pages (two-column layout, no sidebar)
+│   │   │   ├── layout.tsx                # Branding left, form right
+│   │   │   ├── login/page.tsx            # Login + MFA prompt + reCAPTCHA v3
+│   │   │   ├── register/page.tsx         # Register + zxcvbn password meter
 │   │   │   ├── forgot-password/page.tsx
 │   │   │   ├── reset-password/[token]/page.tsx
-│   │   │   ├── verify-email/page.tsx
-│   │   │   └── mfa-setup/page.tsx  # TOTP QR code + backup codes
-│   │   ├── admin/                  # Admin panel (role=admin only)
+│   │   │   ├── verify-email/page.tsx     # Auto-verify on load
+│   │   │   └── mfa-setup/page.tsx        # QR code + backup codes + confirm
+│   │   ├── admin/                        # Admin panel (role=admin only)
 │   │   │   ├── layout.tsx
-│   │   │   ├── page.tsx            # Stats overview
-│   │   │   ├── users/page.tsx      # User management (toggle active, delete)
-│   │   │   ├── courses/page.tsx    # Course CRUD + publish toggle
-│   │   │   ├── transactions/page.tsx
-│   │   │   └── logs/page.tsx       # Real-time audit log viewer
-│   │   ├── dashboard/              # User dashboard (role=user)
+│   │   │   ├── page.tsx                  # Stats + quick links
+│   │   │   ├── users/page.tsx            # Search, activate/deactivate, delete
+│   │   │   ├── courses/page.tsx          # Create, edit, publish/unpublish, delete
+│   │   │   ├── transactions/page.tsx     # Khalti transactions + revenue
+│   │   │   └── logs/page.tsx             # Live audit log viewer, filterable
+│   │   ├── dashboard/                    # User dashboard (role=user)
 │   │   │   ├── layout.tsx
-│   │   │   └── page.tsx            # Enrolled courses, transactions, MFA reminder
+│   │   │   └── page.tsx                  # Stats, enrolled courses, recent payments
 │   │   ├── courses/
-│   │   │   └── page.tsx            # Browse + Stripe purchase
+│   │   │   └── page.tsx                  # Browse + filter + Khalti buy button
+│   │   ├── payment/
+│   │   │   └── verify/page.tsx           # Khalti callback — verify pidx → enrol
 │   │   ├── profile/
 │   │   │   ├── layout.tsx
-│   │   │   └── page.tsx            # Edit profile, change password, MFA, GDPR export
+│   │   │   └── page.tsx                  # Edit profile, password, MFA, GDPR export
 │   │   ├── globals.css
-│   │   ├── layout.tsx              # Root layout with AuthProvider + Toaster
-│   │   └── page.tsx                # Landing page
+│   │   ├── layout.tsx
+│   │   └── page.tsx                      # Landing page (redirects if logged in)
 │   ├── components/
 │   │   ├── shared/
-│   │   │   ├── index.tsx           # Spinner, ErrorAlert, Avatar, RoleBadge, StatCard
-│   │   │   └── Sidebar.tsx         # Role-aware sidebar (user vs admin nav)
+│   │   │   ├── index.tsx                 # Spinner, ErrorAlert, Avatar, RoleBadge, StatCard
+│   │   │   └── Sidebar.tsx               # Role-aware nav (user vs admin)
 │   │   └── ui/
-│   │       └── PasswordStrengthMeter.tsx  # Real-time zxcvbn meter + policy checklist
+│   │       └── PasswordStrengthMeter.tsx # zxcvbn bar + policy checklist
 │   ├── context/
-│   │   └── authContext.tsx         # Auth state, login (role redirect), logout
+│   │   └── authContext.tsx               # Auth state; fetches fresh /me after login
 │   ├── hooks/
-│   │   └── useRequireAuth.ts       # Route guard — redirects by role
+│   │   └── useRequireAuth.ts             # Route guard with role check
 │   ├── lib/
 │   │   ├── api/
-│   │   │   ├── axios.ts            # Axios instance + auto token refresh interceptor
-│   │   │   ├── endpoints.ts        # All API endpoint constants
-│   │   │   └── index.ts            # authApi, courseApi, profileApi, paymentApi, adminApi
+│   │   │   ├── axios.ts                  # Axios instance + auto refresh interceptor
+│   │   │   ├── endpoints.ts              # All API constants
+│   │   │   └── index.ts                  # authApi, courseApi, profileApi, paymentApi, adminApi
 │   │   └── utils/
-│   │       └── password.ts         # Client-side zxcvbn + policy validation
-│   ├── types/
-│   ├── .env.local                  # Client env vars (NEXT_PUBLIC_*)
+│   │       └── password.ts               # Client-side policy + zxcvbn
+│   ├── .env.local
 │   ├── Dockerfile
-│   ├── next.config.ts
+│   ├── next.config.js                    # .js not .ts (Next.js 14 requirement)
 │   ├── package.json
-│   ├── postcss.config.js
+│   ├── postcss.config.js                 # CommonJS syntax (not ESM)
 │   ├── tailwind.config.ts
 │   └── tsconfig.json
 │
-├── server/                         # Express + TypeScript API
+├── server/                               # Express + TypeScript API
 │   ├── src/
 │   │   ├── config/
-│   │   │   ├── env.config.ts       # Typed env with production validation
-│   │   │   └── database.config.ts  # Mongoose connect with reconnect handling
+│   │   │   ├── env.config.ts             # Typed env with Khalti config
+│   │   │   └── database.config.ts        # Mongoose connect
 │   │   ├── controllers/
-│   │   │   ├── auth.controller.ts  # Register, login (MFA), refresh, logout, verify, reset
-│   │   │   ├── course.controller.ts
-│   │   │   ├── profile.controller.ts  # Update, change-password, GDPR export
-│   │   │   ├── transaction.controller.ts  # Stripe intent + webhook
-│   │   │   └── admin.controller.ts # Users, courses, logs, stats
+│   │   │   ├── auth.controller.ts        # Register, login, MFA, refresh, logout
+│   │   │   ├── course.controller.ts      # CRUD + lesson management
+│   │   │   ├── profile.controller.ts     # Update, change-password, export
+│   │   │   ├── transaction.controller.ts # Khalti initiate + verify
+│   │   │   └── admin.controller.ts       # Users, stats, audit logs
 │   │   ├── middleware/
-│   │   │   ├── auth.middleware.ts  # requireAuth, requireRole, requireAdmin
-│   │   │   ├── error.middleware.ts # Global error handler (no stack leak)
-│   │   │   ├── rateLimiter.middleware.ts  # Global + login + payment limiters
-│   │   │   ├── recaptcha.middleware.ts    # reCAPTCHA v3 verification
+│   │   │   ├── auth.middleware.ts        # requireAuth, requireRole, requireAdmin
+│   │   │   ├── error.middleware.ts       # Global — never leaks stack traces
+│   │   │   ├── rateLimiter.middleware.ts # Global + login + payment limiters
+│   │   │   ├── recaptcha.middleware.ts   # reCAPTCHA v3 (enabled in prod)
 │   │   │   └── validation.middleware.ts  # express-validator result handler
 │   │   ├── models/
-│   │   │   ├── user.model.ts       # RBAC roles, MFA, password history, session tokens
-│   │   │   ├── course.model.ts     # Lessons as Mongoose subdocuments (ILesson extends Document)
-│   │   │   └── transaction.model.ts  # Stripe payment intent + HMAC signature
+│   │   │   ├── user.model.ts             # RBAC, MFA, password history, sessions
+│   │   │   ├── course.model.ts           # ILesson extends Document (toObject fix)
+│   │   │   └── transaction.model.ts      # pidx (Khalti), HMAC signature
 │   │   ├── routes/
-│   │   │   ├── auth.routes.ts      # /api/auth/*
-│   │   │   └── index.ts            # /api/courses, /api/profile, /api/payments, /api/admin
+│   │   │   ├── auth.routes.ts
+│   │   │   └── index.ts                  # courses, profile, payments, admin
 │   │   ├── services/
-│   │   │   ├── email.service.ts    # Nodemailer — verification, reset, alerts, purchase confirm
-│   │   │   ├── mfa.service.ts      # speakeasy TOTP + AES-256-GCM encrypted secrets
-│   │   │   ├── password.service.ts # zxcvbn strength + policy validation
-│   │   │   ├── token.service.ts    # JWT access/refresh generation + verification
-│   │   │   └── transaction.service.ts  # Stripe PaymentIntent + webhook + HMAC
-│   │   ├── types/
-│   │   │   └── express/index.d.ts  # Express Request augmentation (req.user)
-│   │   ├── utils/
-│   │   │   └── logger.utils.ts     # Winston + daily-rotate audit logger
-│   │   └── server.ts               # App bootstrap — helmet, cors, hpp, sanitize, routes
-│   ├── .env                        # Server secrets (never commit)
-│   ├── .env.example                # Template (safe to commit)
+│   │   │   ├── email.service.ts          # Nodemailer — verify, reset, alerts
+│   │   │   ├── mfa.service.ts            # speakeasy + AES-256-GCM secrets
+│   │   │   ├── password.service.ts       # zxcvbn + policy validation
+│   │   │   ├── token.service.ts          # JWT access/refresh
+│   │   │   └── transaction.service.ts    # Khalti initiate + verify + HMAC
+│   │   ├── types/express/index.d.ts      # req.user type augmentation
+│   │   ├── utils/logger.utils.ts         # Winston + audit logger
+│   │   └── server.ts                     # Bootstrap — inline XSS sanitizer
+│   ├── .env                              # Secrets (never commit)
+│   ├── .env.example                      # Template (safe to commit)
 │   ├── .eslintrc.json
 │   ├── Dockerfile
-│   ├── nodemon.json
+│   ├── nodemon.json                      # --transpile-only for fast dev
 │   ├── package.json
 │   └── tsconfig.json
 │
 ├── .gitignore
-├── .github/workflows/ci.yml
 ├── docker-compose.yml
 └── README.md
 ```
 
 ---
 
-## 4. Environment Setup
+## 4. Environment Variables
 
-### Server — `server/.env`
+### `server/.env`
 
 ```env
 NODE_ENV=development
@@ -184,14 +182,14 @@ JWT_REFRESH_EXPIRES_IN=7d
 COOKIE_SECRET=<32-char-random>
 ENCRYPTION_KEY=<exactly-32-chars>
 
-STRIPE_SECRET_KEY=sk_test_XXXX
-STRIPE_WEBHOOK_SECRET=whsec_XXXX
+# Khalti (https://admin.khalti.com → Developer → Keys)
+KHALTI_SECRET_KEY=your_khalti_live_secret_key
 
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
-SMTP_USER=rezen.khadgi@gmail.com
+SMTP_USER=your@gmail.com
 SMTP_PASS=your-gmail-app-password
-EMAIL_FROM=GyanKosh <rezen.khadgi@gmail.com>
+EMAIL_FROM=GyanKosh <your@gmail.com>
 EMAIL_SEND_IN_DEVELOPMENT=true
 
 APP_NAME=GyanKosh
@@ -208,405 +206,436 @@ LOGIN_RATE_LIMIT_WINDOW_MS=900000
 IP_ALLOWLIST=127.0.0.1,::1
 ```
 
-### Client — `client/.env.local`
+### `client/.env.local`
 
 ```env
 NEXT_PUBLIC_API_URL=http://localhost:5000
 NEXT_PUBLIC_RECAPTCHA_SITE_KEY=6LeeMhEtAAAAAKAQL5QzxCH3doxoNLNlzfzOhvHa
-NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_XXXX
-```
-
-### Creating an Admin Account
-
-Admins are created manually in MongoDB — there is no public register-as-admin flow (zero-trust).
-
-```js
-// Run in MongoDB Shell or Atlas Data Explorer
-db.users.updateOne(
-  { email: "admin@yourdomain.com" },
-  { $set: { role: "admin" } }
-)
 ```
 
 ---
 
-## 5. Running the Application
+## 5. Running the App
 
-### Local Development
+### Development
 
 ```bash
-# Server
+# Terminal 1 — Server
 cd server
 npm install
-npm run dev        # nodemon + ts-node on :5000
+npm run dev          # nodemon → ts-node --transpile-only → :5000
 
-# Client (new terminal)
+# Terminal 2 — Client
 cd client
 npm install
-npm run dev        # Next.js dev server on :3000
+npm run dev          # Next.js dev server → :3000
 ```
 
-### Docker (Recommended for marking)
+### Docker
 
 ```bash
 # From project root
 docker-compose up --build
-
 # Server: http://localhost:5000/api/health
 # Client: http://localhost:3000
 ```
 
 ---
 
-## 6. Security Features
+## 6. Creating an Admin
 
-### 6.1 Password Security (§3.1)
+There is no public admin registration — admins are set manually in MongoDB (zero-trust principle).
 
-| Feature | Implementation |
-|---------|---------------|
-| Minimum 12 chars | `validatePasswordPolicy()` in `password.service.ts` |
-| Uppercase + lowercase + number + symbol | Regex checked server-side AND client-side |
-| Real-time strength meter | `zxcvbn` library, `PasswordStrengthMeter.tsx` |
-| Password history (last 5) | `passwordHistory[]` in User model, checked on change/reset |
-| 90-day expiry | `passwordExpiresAt` field, expiry banner on profile page |
-| bcrypt cost 12 | `bcrypt.hash(password, 12)` in `user.model.ts` pre-save hook |
+**Option A — MongoDB Atlas Data Explorer:**
+```json
+Find user by email → Edit → change "role" field from "user" to "admin" → Update
+```
 
-### 6.2 MFA (§2.2)
+**Option B — mongosh:**
+```js
+db.users.updateOne({ email: "admin@yourdomain.com" }, { $set: { role: "admin" } })
+```
 
-- TOTP via `speakeasy` (RFC 6238 compliant, 30-second window)
-- QR code generated with `qrcode` library
-- 10 single-use backup codes (bcrypt hashed, consumed on use)
-- MFA secret encrypted with AES-256-GCM before storing in database
-
-### 6.3 Brute-Force Prevention (§3.2)
-
-- **Account lockout**: 5 failed attempts → 15-minute lockout (`lockedUntil` field)
-- **Rate limiting**: 10 login attempts per 15 min per IP (`express-rate-limit`)
-- **IP allowlist**: localhost IPs exempt in development
-- **reCAPTCHA v3**: Applied to `/login`, `/register`, `/reset-password`
-- **Slow-down**: Progressive delay before hard limit
-
-### 6.4 Session Management (§3.4)
-
-- Access token: 15-min JWT (HS256, `gyankosh` issuer/audience)
-- Refresh token: 7-day JWT stored in `HttpOnly; Secure; SameSite=Strict` cookie
-- Session binding: refresh tokens store `userAgent` + `ip` — foreign session detection possible
-- Auto-rotation: new access token issued on every `/refresh` call
-- Logout: removes specific session token from `activeRefreshTokens[]`
-
-### 6.5 Encryption (§3.5)
-
-- Passwords: bcrypt (adaptive, salt-included)
-- MFA secrets: AES-256-GCM (IV + auth tag + ciphertext, all stored together)
-- HMAC on transactions: `sha256(userId|courseId|amount|currency|timestamp)` with 32-byte key
-- All fields stripped from `.toJSON()`: password, mfa.secret, backupCodes, tokens
-
-### 6.6 Access Control (§3.3)
-
-- `requireAuth` middleware: verifies JWT, attaches `req.user`
-- `requireRole(...roles)`: checks `req.user.role` against allowed list
-- `requireAdmin`: shorthand for `requireRole(UserRole.ADMIN)`
-- Profile updates: field whitelist prevents mass-assignment (`profile.firstName` etc.)
-- IDOR prevention: users can only access their own profile/transactions by `req.user.sub`
-
-### 6.7 Input Validation & Injection Prevention
-
-- `express-validator`: schema-level validation on all routes
-- `express-mongo-sanitize`: strips `$` and `.` from query/body (NoSQL injection)
-- `hpp`: HTTP Parameter Pollution prevention
-- `xss-clean`: sanitises user input against reflected XSS
-- `helmet`: 11 security headers including CSP, HSTS, X-Frame-Options
-
-### 6.8 Payment Security (§2.4)
-
-- Stripe PaymentIntent API (PCI-DSS compliant — card data never touches our server)
-- Webhook signature verification: `stripe.webhooks.constructEvent()` with `whsec_` secret
-- HMAC integrity: every transaction has a SHA-256 signature re-verified in the webhook handler
-- Atomic MongoDB transaction: enrollment only happens if payment + DB update both succeed
-- Idempotency key on PaymentIntent prevents duplicate charges
-
-### 6.9 Audit Logging (§2.5)
-
-Events logged to `logs/audit-YYYY-MM-DD.log` (rotated daily, 90-day retention):
-
-`login_success`, `login_failed`, `login_blocked_locked`, `logout`, `user_registered`, `email_verified`, `password_reset`, `password_changed`, `mfa_enabled`, `payment_completed`, `payment_intent_created`, `profile_exported`, `admin_toggle_user`, `admin_delete_user`, `course_created`, `course_deleted`, `webhook_signature_invalid`, `server_started`
-
-All logs are **structured JSON** and **never contain sensitive data** (passwords, tokens redacted).
+After login, role=admin is redirected to `/admin` automatically.
 
 ---
 
-## 7. Role-Based Access Control
+## 7. Khalti Payment Setup
+
+### Test Keys (development)
+1. Go to [https://test-admin.khalti.com](https://test-admin.khalti.com)
+2. Register a merchant account
+3. Go to **Developer** → **Keys**
+4. Copy **Live Secret Key** → paste into `server/.env` as `KHALTI_SECRET_KEY`
+
+### Test Cards
+Use Khalti test credentials:
+- Mobile: `9800000000` through `9800000005`
+- MPIN: `1111`
+- OTP: `987654`
+
+### How Payments Work
+
+```
+User clicks "Buy with Khalti"
+  → POST /api/payments/initiate
+    → Server calls Khalti API to create payment session
+    → Server saves pending Transaction with HMAC signature
+    → Returns payment_url
+  → Browser redirects to Khalti hosted page
+  → User pays with Khalti wallet/bank
+  → Khalti redirects to /payment/verify?pidx=xxx&status=Completed
+  → POST /api/payments/verify (with pidx)
+    → Server calls Khalti lookup API to verify
+    → Re-checks HMAC signature + amount integrity
+    → Atomic DB transaction: marks complete + enrolls user
+    → User redirected to dashboard with course access
+```
+
+**Free courses** are enrolled instantly without Khalti (no redirect needed).
+
+### Price Storage
+Prices are stored in **paisa** (1 NPR = 100 paisa), matching Khalti's API.
+Example: Rs. 500 → stored as `50000` in `priceCents` field.
+
+---
+
+## 8. Security Features
+
+### Password Security (§3.1)
+| Feature | Implementation |
+|---------|---------------|
+| Min 12 chars | `validatePasswordPolicy()` — server + client |
+| Complexity rules | Uppercase, lowercase, number, special char — regex |
+| Real-time feedback | `zxcvbn` — `PasswordStrengthMeter.tsx` component |
+| Last 5 history | `passwordHistory[]` in User model |
+| 90-day expiry | `passwordExpiresAt` — banner shown 14 days before |
+| Bcrypt cost 12 | Pre-save hook in `user.model.ts` |
+
+### MFA (§2.2)
+- TOTP via speakeasy (RFC 6238, 30-second codes)
+- QR code generated server-side via `qrcode`
+- 10 backup codes (bcrypt hashed), consumed on use
+- MFA secret stored AES-256-GCM encrypted
+
+### Brute-Force (§3.2)
+- **Account lockout**: 5 failed → 15-min lock (`lockedUntil` field)
+- **Rate limiting**: 10 login/15 min per IP (`express-rate-limit`)
+- **IP allowlist**: bypass for localhost in dev
+- **reCAPTCHA v3**: on login, register, password reset (enabled in prod)
+
+### Session Management (§3.4)
+- Access token: 15-min JWT (HS256, issuer/audience validated)
+- Refresh token: 7-day JWT in `HttpOnly; Secure; SameSite=Strict` cookie
+- Session binding: stores `userAgent` + `ip` per refresh token
+- Rotation: new access token on every `/refresh` call
+- Revocation: logout removes specific token hash from `activeRefreshTokens[]`
+
+### Encryption (§3.5)
+- Passwords: bcrypt (cost 12)
+- MFA secrets: AES-256-GCM (IV + tag + ciphertext)
+- Transaction integrity: HMAC-SHA256 with 32-byte key
+- All sensitive fields stripped in `.toJSON()` transform
+
+### Access Control (§3.3)
+- `requireAuth`: verifies JWT, attaches `req.user`
+- `requireRole(...roles)`: checks `req.user.role`
+- `requireAdmin`: shorthand
+- Profile updates: whitelist prevents mass-assignment
+- IDOR prevention: all queries use `req.user.sub`
+
+### Injection Prevention
+- `express-mongo-sanitize`: strips `$`, `.` from body/query
+- `hpp`: HTTP parameter pollution prevention
+- Inline XSS sanitizer: escapes `< > & " '` in all string inputs
+- `helmet`: CSP, HSTS, X-Frame-Options, and 8 more headers
+
+### Payment Security (§2.4)
+- Khalti: merchant never sees card details (PCI-DSS compliant)
+- HMAC signature: computed before payment, re-verified on webhook
+- Amount integrity: server compares Khalti's `total_amount` vs stored `amountCents`
+- Atomic MongoDB session: enrolment only if all writes succeed
+
+### Audit Logging (§2.5)
+Events written to `logs/audit-YYYY-MM-DD.log` (90-day rotation):
+
+```
+login_success · login_failed · login_blocked_locked · logout
+user_registered · email_verified
+password_reset · password_changed · mfa_enabled
+payment_intent_created · payment_completed · payment_verify_failed
+profile_exported · admin_toggle_user · admin_delete_user
+course_created · course_updated · course_deleted
+webhook_signature_invalid · server_started
+```
+
+Logs are structured JSON. Sensitive fields (`password`, `token`, `secret`) are redacted automatically.
+
+---
+
+## 9. Role-Based Access Control
 
 | Feature | `user` | `admin` |
 |---------|--------|---------|
 | Browse courses | ✅ | ✅ |
-| Purchase & enroll | ✅ | ✅ |
+| Purchase with Khalti | ✅ | ✅ |
 | View own dashboard | ✅ | — |
 | Edit own profile | ✅ | ✅ |
-| Admin stats overview | ❌ | ✅ |
-| Manage all users | ❌ | ✅ |
-| Create/edit/delete courses | ❌ | ✅ |
+| Admin overview | ❌ | ✅ |
+| Manage users | ❌ | ✅ |
+| Create/publish courses | ❌ | ✅ |
 | View all transactions | ❌ | ✅ |
 | View audit logs | ❌ | ✅ |
 
-Login redirects:
+Login redirects automatically:
 - `role=user` → `/dashboard`
 - `role=admin` → `/admin`
 
-Admin accounts are created manually in MongoDB (`role: "admin"`). There is no UI to self-promote.
+Logged-in users are redirected away from `/login` and `/register` automatically.
 
 ---
 
-## 8. API Reference
+## 10. API Reference
 
-### Auth
+### Auth (`/api/auth`)
+| Method | Route | Auth | Notes |
+|--------|-------|------|-------|
+| POST | `/register` | Public | reCAPTCHA, email verification sent |
+| GET | `/verify-email/:token` | Public | Link from email |
+| POST | `/login` | Public | Returns `mfaRequired` if MFA on |
+| POST | `/refresh` | Cookie | Rotates access token |
+| POST | `/logout` | Bearer | Removes session |
+| GET | `/me` | Bearer | Fresh user data |
+| POST | `/request-password-reset` | Public | Anti-enumeration (always 200) |
+| POST | `/reset-password/:token` | Public | History check |
+| POST | `/mfa/setup` | Bearer | Returns QR + backup codes |
+| POST | `/mfa/confirm` | Bearer | Enables MFA |
 
-| Method | Route | Auth | Description |
-|--------|-------|------|-------------|
-| POST | `/api/auth/register` | Public | Register new user |
-| GET/POST | `/api/auth/verify-email/:token` | Public | Verify email via link |
-| POST | `/api/auth/verify-email` | Public | Verify via code |
-| POST | `/api/auth/login` | Public | Login (returns MFA prompt if needed) |
-| POST | `/api/auth/refresh` | Cookie | Refresh access token |
-| POST | `/api/auth/logout` | Bearer | Invalidate session |
-| GET | `/api/auth/me` | Bearer | Get current user |
-| POST | `/api/auth/request-password-reset` | Public | Request reset email |
-| POST | `/api/auth/reset-password/:token` | Public | Reset via link |
-| POST | `/api/auth/mfa/setup` | Bearer | Generate QR code |
-| POST | `/api/auth/mfa/confirm` | Bearer | Enable MFA after verification |
+### Courses (`/api/courses`)
+| Method | Route | Auth | Notes |
+|--------|-------|------|-------|
+| GET | `/` | Public | Filter by category, level, search |
+| GET | `/:slug` | Optional | Lessons gated — full if enrolled |
 
-### Courses
+### Profile (`/api/profile`)
+| Method | Route | Auth | Notes |
+|--------|-------|------|-------|
+| GET | `/` | Bearer | Includes enrolled courses |
+| PATCH | `/` | Bearer | Whitelisted fields only |
+| POST | `/change-password` | Bearer | History + policy checked |
+| GET | `/export` | Bearer | GDPR JSON export |
 
-| Method | Route | Auth | Description |
-|--------|-------|------|-------------|
-| GET | `/api/courses` | Public | List published courses |
-| GET | `/api/courses/:slug` | Optional | Course detail (lessons gated) |
+### Payments (`/api/payments`)
+| Method | Route | Auth | Notes |
+|--------|-------|------|-------|
+| POST | `/initiate` | Bearer | Creates Khalti session, returns paymentUrl |
+| POST | `/verify` | Bearer | Verifies pidx, enrols user atomically |
+| GET | `/my-transactions` | Bearer | Own history |
 
-### Profile
-
-| Method | Route | Auth | Description |
-|--------|-------|------|-------------|
-| GET | `/api/profile` | Bearer | Get own profile + enrolled courses |
-| PATCH | `/api/profile` | Bearer | Update profile (whitelisted fields) |
-| POST | `/api/profile/change-password` | Bearer | Change password (history checked) |
-| GET | `/api/profile/export` | Bearer | GDPR data export (JSON download) |
-
-### Payments
-
-| Method | Route | Auth | Description |
-|--------|-------|------|-------------|
-| POST | `/api/payments/create-intent` | Bearer | Create Stripe PaymentIntent |
-| POST | `/api/payments/webhook` | Stripe sig | Confirm payment, enroll user |
-| GET | `/api/payments/my-transactions` | Bearer | Own transaction history |
-
-### Admin
-
-| Method | Route | Auth | Description |
-|--------|-------|------|-------------|
-| GET | `/api/admin/stats` | Admin | Platform statistics |
-| GET | `/api/admin/users` | Admin | List all users |
-| PATCH | `/api/admin/users/:id/toggle-active` | Admin | Activate/deactivate user |
-| DELETE | `/api/admin/users/:id` | Admin | Delete user |
-| GET | `/api/admin/logs` | Admin | Today's audit log (last 200 events) |
-| GET | `/api/admin/courses` | Admin | All courses (published + draft) |
-| POST | `/api/admin/courses` | Admin | Create course |
-| PATCH | `/api/admin/courses/:id` | Admin | Update course |
-| DELETE | `/api/admin/courses/:id` | Admin | Delete course |
-| POST | `/api/admin/courses/:id/lessons` | Admin | Add lesson to course |
-| GET | `/api/admin/transactions` | Admin | All transactions |
+### Admin (`/api/admin`) — all require `role=admin`
+| Method | Route | Notes |
+|--------|-------|-------|
+| GET | `/stats` | Users, courses, revenue |
+| GET | `/users` | Paginated, searchable |
+| PATCH | `/users/:id/toggle-active` | Cannot deactivate self |
+| DELETE | `/users/:id` | Cannot delete self |
+| GET | `/logs` | Today's audit log, last 200 events |
+| GET | `/courses` | All (published + drafts) |
+| POST | `/courses` | Create (starts as draft) |
+| PATCH | `/courses/:id` | Edit + `isPublished: true` to publish |
+| DELETE | `/courses/:id` | |
+| POST | `/courses/:id/lessons` | Add lesson to course |
+| GET | `/transactions` | All payments |
 
 ---
 
-## 9. Docker & CI/CD
+## 11. Docker & CI/CD
 
 ### Docker
 
 ```bash
-# Development
 docker-compose up --build
-
-# Production (with your real .env values)
-NODE_ENV=production docker-compose up -d
 ```
 
-Containers:
-- `gyankosh-mongo` — MongoDB 7.0
-- `gyankosh-server` — Express API (non-root `gyankosh` user, healthcheck)
-- `gyankosh-client` — Next.js (non-root `nextjs` user)
+Services: `gyankosh-mongo` (MongoDB 7) · `gyankosh-server` (Express, non-root) · `gyankosh-client` (Next.js, non-root)
 
-### GitHub Actions CI/CD Pipeline (`.github/workflows/ci.yml`)
+Both containers run as non-root users with health checks.
 
-Triggers on push to `main`/`develop` and PRs to `main`.
+### GitHub Actions (`.github/workflows/ci.yml`)
 
-| Job | Steps |
-|-----|-------|
-| `server-checks` | `npm ci` → TypeScript typecheck → ESLint (SAST) → `npm audit --audit-level=high` → build |
-| `client-checks` | `npm ci` → `tsc --noEmit` → ESLint → `npm audit` |
-| `secret-scan` | Gitleaks — scans entire git history for leaked secrets |
-| `docker-build` | Builds server + client Docker images (on `main` only) |
+Triggers on push to `main`/`develop` and PRs to `main`:
+
+| Job | What it does |
+|-----|-------------|
+| `server-checks` | TypeScript typecheck → ESLint SAST → `npm audit --audit-level=high` → build |
+| `client-checks` | TypeScript typecheck → ESLint → `npm audit` |
+| `secret-scan` | Gitleaks scans all git history for leaked secrets |
+| `docker-build` | Builds both Docker images (main branch only) |
 
 ---
 
-## 10. Penetration Testing Guide
+## 12. Penetration Testing Guide
 
-### Scope
-
-**In-scope**: All endpoints under `/api/*`, web UI on `localhost:3000`, authentication flows, session handling, payment flow.
-
-**Out-of-scope**: MongoDB Atlas infrastructure, Google reCAPTCHA servers, Stripe servers.
-
-**Methodology**: OWASP WSTG v4.2 + NIST SP 800-115. White-box (source code available).
+**Scope:** All `/api/*` endpoints on localhost, web UI on `:3000`  
+**Methodology:** OWASP WSTG v4.2 + NIST SP 800-115. White-box testing (source available).  
+**Tools:** Burp Suite (primary, white-box), ZAP (black-box supplement)
 
 ### Test Cases
 
-#### Authentication (WSTG-AUTHN)
-
+#### AUTHN — Authentication
 ```
-AUTHN-01: SQL/NoSQL injection in login body
-  Payload: { "email": { "$gt": "" }, "password": "x" }
-  Expected: 401 (mongo-sanitize strips $ operator)
-  Tool: Burp Suite Repeater
+AUTHN-01: NoSQL injection in login
+  Payload: {"email":{"$gt":""},"password":"x"}
+  Expected: 400 (mongo-sanitize strips $)
+  Tool: Burp Repeater
 
 AUTHN-02: Brute-force login
-  Tool: Burp Intruder — 20 requests with wrong passwords
+  Tool: Burp Intruder — 10+ wrong passwords same IP
   Expected: 423 Locked after 5 attempts
 
-AUTHN-03: JWT algorithm confusion (alg:none)
-  Modify JWT header to alg:none, remove signature
+AUTHN-03: JWT alg:none
+  Modify header: {"alg":"none","typ":"JWT"}, remove signature
   Expected: 401 — server enforces HS256 only
 
 AUTHN-04: Refresh token reuse after logout
-  1. Login, capture refreshToken cookie
-  2. Logout (invalidates session)
+  1. Login → capture refreshToken cookie
+  2. POST /api/auth/logout
   3. POST /api/auth/refresh with old cookie
-  Expected: 401 — token hash removed from activeRefreshTokens
+  Expected: 401 — hash removed from activeRefreshTokens
 
-AUTHN-05: MFA bypass — skip mfaToken on second factor
-  1. Login returns { mfaRequired: true, tempToken }
-  2. Call /api/auth/login again without mfaToken
-  Expected: still prompts for MFA (no bypass)
+AUTHN-05: MFA bypass
+  Login with correct creds → returns mfaRequired:true
+  Attempt to call protected endpoint with partial tempToken
+  Expected: 403 — tempToken has 3-min expiry, no role access
 ```
 
-#### Access Control (WSTG-ATHZ)
-
+#### ATHZ — Access Control
 ```
-ATHZ-01: IDOR — access another user's profile
-  GET /api/profile with user A's token → only sees own data
-  Expected: 200 with own data only (sub from JWT, not from request param)
+ATHZ-01: IDOR — access another user profile
+  GET /api/profile with user A token, try to get user B data
+  Expected: 200 — only own data (bound to req.user.sub)
 
-ATHZ-02: Privilege escalation — user accessing admin endpoints
+ATHZ-02: Privilege escalation — user to admin
   GET /api/admin/users with user-role JWT
   Expected: 403 Insufficient permissions
 
-ATHZ-03: Mass assignment — inject role via PATCH /api/profile
-  Body: { "role": "admin", "firstName": "Hacker" }
-  Expected: role field ignored (whitelist only allows profile.* fields)
+ATHZ-03: Mass assignment — inject role via profile
+  PATCH /api/profile {"role":"admin","firstName":"x"}
+  Expected: role ignored — only whitelisted fields updated
 ```
 
-#### Injection (WSTG-INPV)
-
+#### INPV — Input Validation
 ```
 INPV-01: NoSQL injection in course search
-  GET /api/courses?search[$regex]=.*&search[$options]=i
-  Expected: 400 or safe result (mongo-sanitize + validator)
+  GET /api/courses?search[$regex]=.*
+  Expected: safe (mongo-sanitize + express-validator)
 
-INPV-02: XSS in course title (stored)
-  POST /api/admin/courses { title: "<script>alert(1)</script>" }
-  Expected: xss-clean strips script tag; output escaped in React
+INPV-02: Stored XSS via course title
+  POST /api/admin/courses {"title":"<script>alert(1)</script>"}
+  Expected: inline sanitizer escapes to &lt;script&gt;
 
 INPV-03: HTTP Parameter Pollution
-  POST /api/auth/login?email=a@a.com&email=b@b.com
-  Expected: hpp middleware keeps only last value
+  POST /api/auth/login body: email=a@a.com&email=b@b.com
+  Expected: hpp keeps last value only
 ```
 
-#### Session (WSTG-SESS)
-
+#### Payment Security
 ```
-SESS-01: Cookie flags
-  Inspect Set-Cookie header on login
+PAY-01: Khalti amount tampering
+  Initiate payment → intercept Khalti callback → modify pidx or amount
+  Expected: server re-fetches from Khalti API — tampered amount fails HMAC check
+
+PAY-02: Double purchase
+  POST /api/payments/initiate twice for same course
+  Expected: second returns 409 Already enrolled
+
+PAY-03: Replay pidx from another user
+  User A's pidx used with User B's JWT
+  Expected: 404 Transaction not found (user mismatch)
+```
+
+#### SESS — Session
+```
+SESS-01: Cookie attributes
+  Inspect Set-Cookie on POST /api/auth/login
   Expected: HttpOnly; Secure; SameSite=Strict
 
-SESS-02: Session fixation
-  Obtain refresh token before login, attempt to use it
-  Expected: each login generates new sessionId
-
-SESS-03: CSRF on state-changing endpoint
-  POST /api/profile without Origin header from allowed domain
-  Expected: CORS rejects cross-origin requests
-```
-
-#### Business Logic
-
-```
-BL-01: Double enrollment — purchase same course twice
-  POST /api/payments/create-intent with same courseId twice concurrently
-  Expected: second request returns 409 Already enrolled
-
-BL-02: Spoofed webhook — send fake payment_intent.succeeded
-  POST /api/payments/webhook without valid Stripe-Signature header
-  Expected: 400 Invalid webhook signature
-
-BL-03: HMAC tampering — modify transaction amount in metadata
-  Alter intent metadata and replay webhook
-  Expected: HMAC re-verification fails, enrollment skipped
+SESS-02: CSRF protection
+  Send cross-origin POST from evil.com
+  Expected: CORS blocks (origin not in allowlist)
 ```
 
 ---
 
-## 11. Commit Strategy
+## 13. Commit Strategy
 
-> Minimum 40 commits required. Each commit maps to a security decision.
+Minimum 40 commits required. Format:
 
-Suggested commit message format:
 ```
-<type>(<scope>): <description> (<OWASP ref>)
+<type>(<scope>): <description> [OWASP ref]
 ```
 
-Examples:
+Example commits to make:
 ```
-feat(auth): implement bcrypt password hashing with cost 12 (OWASP A3)
-feat(auth): add account lockout after 5 failed attempts (OWASP A7)
-feat(session): HttpOnly+Secure+SameSite=Strict refresh token cookie (OWASP A7)
-feat(mfa): implement TOTP with AES-256-GCM encrypted secret (OWASP A7)
-feat(rbac): add requireRole middleware for admin endpoints (OWASP A1)
-security(input): add express-mongo-sanitize against NoSQL injection (OWASP A3)
-security(input): add xss-clean middleware (OWASP A3)
-security(headers): configure helmet CSP + HSTS (OWASP A5)
-feat(rate-limit): IP-based login throttle 10req/15min (OWASP A7)
-feat(payment): Stripe webhook signature verification (OWASP A8)
-feat(payment): HMAC transaction integrity check (OWASP A8)
-feat(audit): Winston daily-rotate structured audit logging (OWASP A9)
-feat(password): zxcvbn real-time strength meter (OWASP A7)
-feat(password): enforce 90-day expiry + last-5 history check (OWASP A7)
-feat(profile): GDPR data export endpoint (privacy compliance)
-refactor(mass-assign): whitelist profile update fields (OWASP A8)
-fix(idor): bind profile/transactions to req.user.sub (OWASP A1)
-feat(docker): add Dockerfile for server with non-root user
-feat(docker): add docker-compose with health checks
-feat(ci): add GitHub Actions pipeline with npm audit + Gitleaks
+feat(auth): implement bcrypt password hashing cost 12 [OWASP A2]
+feat(auth): add TOTP MFA with AES-256-GCM secret storage [OWASP A7]
+feat(auth): add account lockout after 5 failed attempts [OWASP A7]
+feat(session): HttpOnly+Secure+SameSite refresh token cookie [OWASP A7]
+feat(session): refresh token rotation with session binding [OWASP A7]
+feat(rbac): add requireRole middleware for admin endpoints [OWASP A1]
+feat(rbac): role-based login redirect (admin→/admin, user→/dashboard) [OWASP A1]
+security(input): add express-mongo-sanitize against NoSQL injection [OWASP A3]
+security(input): inline XSS sanitizer replacing deprecated xss-clean [OWASP A3]
+security(headers): configure helmet CSP + HSTS + X-Frame-Options [OWASP A5]
+feat(rate-limit): IP-based login throttle 10 req/15 min [OWASP A7]
+feat(rate-limit): payment endpoint rate limiter 10 req/hr [OWASP A7]
+feat(payment): Khalti payment initiation with HMAC signature [OWASP A8]
+feat(payment): Khalti verify endpoint with amount integrity check [OWASP A8]
+feat(payment): atomic MongoDB transaction for enrolment [OWASP A8]
+feat(payment): free course direct enrolment without payment gateway [OWASP A8]
+feat(audit): Winston daily-rotate structured audit logging [OWASP A9]
+feat(audit): admin audit log viewer with event filtering [OWASP A9]
+feat(password): zxcvbn real-time strength meter on register page [OWASP A7]
+feat(password): enforce 90-day expiry + last-5 history check [OWASP A7]
+feat(profile): GDPR data export endpoint [privacy compliance]
+refactor(mass-assign): whitelist profile update fields [OWASP A8]
+fix(idor): bind all queries to req.user.sub [OWASP A1]
 fix(ts): ILesson extends Document to resolve .toObject() type error
-feat(admin): audit log viewer with event colour coding
-...
+fix(config): postcss CommonJS syntax for Next.js 14 compatibility
+fix(config): rename next.config.ts→.js (Next.js 14 requirement)
+fix(server): replace deprecated xss-clean with inline sanitizer
+fix(mfa): fetch fresh /me after login to avoid stale mfaEnabled state
+fix(auth): redirect authenticated users away from login/register
+feat(docker): server Dockerfile with non-root gyankosh user
+feat(docker): client Dockerfile with non-root nextjs user
+feat(docker): docker-compose with health checks for all services
+feat(ci): GitHub Actions TypeScript typecheck + ESLint SAST
+feat(ci): npm audit dependency vulnerability scanning
+feat(ci): Gitleaks secret scanning on full git history
+feat(admin): publish/unpublish course with clear labelled button
+feat(admin): admin overview with stats and quick links
+feat(courses): show NPR prices (paisa → rupees conversion)
+feat(pentest): documented AUTHN, ATHZ, INPV, SESS, PAY test cases
 ```
 
 ---
 
-## 12. References
+## 14. References
 
 1. OWASP (2021). *OWASP Top Ten*. https://owasp.org/www-project-top-ten/
 2. OWASP (2021). *OWASP API Security Top 10*. https://owasp.org/www-project-api-security/
 3. OWASP (2021). *Web Security Testing Guide v4.2*. https://owasp.org/www-project-web-security-testing-guide/
-4. NIST (2020). *SP 800-115: Technical Guide to Information Security Testing and Assessment*. https://csrc.nist.gov/publications/detail/sp/800-115/final
-5. NIST (2017). *SP 800-63B: Digital Identity Guidelines — Authentication*. https://pages.nist.gov/800-63-3/sp800-63b.html
-6. Percival, C. & Josefsson, S. (2016). *The scrypt Password-Based Key Derivation Function*. RFC 7914.
+4. NIST (2020). *SP 800-115: Technical Guide to Information Security Testing*. https://csrc.nist.gov/publications/detail/sp/800-115/final
+5. NIST (2017). *SP 800-63B: Digital Identity Guidelines*. https://pages.nist.gov/800-63-3/sp800-63b.html
+6. Khalti (2024). *Khalti ePay API Documentation*. https://docs.khalti.com/khalti-epay/
 7. M'Raihi, D. et al. (2011). *TOTP: Time-Based One-Time Password Algorithm*. RFC 6238.
-8. Stripe (2024). *Stripe Security Overview*. https://stripe.com/docs/security
-9. PortSwigger (2024). *Web Security Academy — Authentication*. https://portswigger.net/web-security/authentication
-10. PortSwigger (2024). *Web Security Academy — JWT Attacks*. https://portswigger.net/web-security/jwt
-11. PortSwigger (2024). *Burp Suite Professional Documentation*. https://portswigger.net/burp/documentation
-12. MongoDB (2024). *Security Checklist*. https://www.mongodb.com/docs/manual/administration/security-checklist/
-13. Mozilla (2024). *MDN Web Security*. https://developer.mozilla.org/en-US/docs/Web/Security
-14. Nodemailer (2024). *Nodemailer Documentation*. https://nodemailer.com/about/
-15. Helme, S. (2024). *Security Headers*. https://securityheaders.com
-16. Goodin, D. (2023). Bcrypt and password security in modern web apps. *Ars Technica*.
-17. IEEE (2022). *Survey on Session Management Vulnerabilities*. IEEE Access.
+8. PortSwigger (2024). *Web Security Academy — Authentication*. https://portswigger.net/web-security/authentication
+9. PortSwigger (2024). *Web Security Academy — JWT Attacks*. https://portswigger.net/web-security/jwt
+10. PortSwigger (2024). *Burp Suite Documentation*. https://portswigger.net/burp/documentation
+11. MongoDB (2024). *Security Checklist*. https://www.mongodb.com/docs/manual/administration/security-checklist/
+12. Mozilla (2024). *MDN Web Security*. https://developer.mozilla.org/en-US/docs/Web/Security
+13. Helme, S. (2024). *Security Headers*. https://securityheaders.com
+14. Goodman, D. (2023). *Practical Node.js Security*. O'Reilly Media.
+15. IEEE (2022). *Survey on Session Management Vulnerabilities in Web Applications*. IEEE Access.
+16. Wyrzykowski, A. (2023). *Zero Trust Architecture in Modern Web Applications*. ACM Digital Library.
+17. Percival, C. & Josefsson, S. (2016). *The scrypt Password-Based Key Derivation Function*. RFC 7914.

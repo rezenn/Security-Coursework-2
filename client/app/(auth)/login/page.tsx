@@ -1,13 +1,14 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import Link from "next/link";
-import { Eye, EyeOff, LogIn, ShieldCheck } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Eye, EyeOff, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/context/authContext";
-import { Spinner, ErrorAlert } from "@/components/shared";
+import { Spinner, ErrorAlert, PageLoader } from "@/components/shared";
 
 const schema = z.object({
   email: z.string().email("Valid email required"),
@@ -17,19 +18,28 @@ const schema = z.object({
 type Form = z.infer<typeof schema>;
 
 export default function LoginPage() {
-  const { login } = useAuth();
+  const { login, isAuthenticated, user, loading: authLoading } = useAuth();
+  const router = useRouter();
   const [showPw, setShowPw] = useState(false);
   const [mfaRequired, setMfaRequired] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const { register, handleSubmit, formState: { errors } } = useForm<Form>({ resolver: zodResolver(schema) });
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (!authLoading && isAuthenticated && user) {
+      router.replace(user.role === "admin" ? "/admin" : "/dashboard");
+    }
+  }, [authLoading, isAuthenticated, user, router]);
+
+  const { register, handleSubmit, formState: { errors } } = useForm<Form>({
+    resolver: zodResolver(schema),
+  });
 
   const onSubmit = async (data: Form) => {
     setError("");
     setLoading(true);
     try {
-      // Get reCAPTCHA token
       let captchaToken: string | undefined;
       if (typeof window !== "undefined" && (window as any).grecaptcha) {
         captchaToken = await (window as any).grecaptcha.execute(
@@ -40,59 +50,51 @@ export default function LoginPage() {
       const result = await login(data.email, data.password, captchaToken, data.mfaToken);
       if (result.mfaRequired) {
         setMfaRequired(true);
-        toast.info("Enter your 6-digit MFA code to continue");
+        toast.info("Enter your 6-digit authenticator code");
       }
     } catch (err: any) {
-      const msg = err?.response?.data?.error || err?.message || "Login failed";
+      const msg = err?.response?.data?.error || "Invalid email or password";
       setError(msg);
-      if (msg.includes("locked")) {
-        toast.error("Account locked. Try again after 15 minutes.");
-      }
     } finally {
       setLoading(false);
     }
   };
 
+  if (authLoading) return <PageLoader />;
+  if (isAuthenticated) return <PageLoader />;
+
   return (
     <>
-      {/* reCAPTCHA v3 */}
       <script
         src={`https://www.google.com/recaptcha/api.js?render=${process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY}`}
-        async
-        defer
+        async defer
       />
-
-      <div className="card">
-        {/* Header */}
-        <div className="flex items-center gap-3 mb-6">
-          <div className="w-10 h-10 bg-blue-600/20 rounded-xl flex items-center justify-center">
-            <LogIn className="text-blue-400" size={18} />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-white">Welcome back</h1>
-            <p className="text-slate-400 text-sm">Sign in to your account</p>
-          </div>
+      <div className="w-full">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-white">Sign in</h1>
+          <p className="text-slate-400 mt-2">Enter your credentials to access GyanKosh</p>
         </div>
 
-        {error && <div className="mb-4"><ErrorAlert message={error} /></div>}
+        {error && <div className="mb-5"><ErrorAlert message={error} /></div>}
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-5" noValidate>
           <div>
-            <label className="label">Email</label>
+            <label className="label">Email address</label>
             <input
               {...register("email")}
               type="email"
               placeholder="you@example.com"
               className="input"
               autoComplete="email"
+              autoFocus
             />
             {errors.email && <p className="field-error">{errors.email.message}</p>}
           </div>
 
           <div>
-            <div className="flex justify-between mb-1">
+            <div className="flex justify-between items-center mb-1">
               <label className="label mb-0">Password</label>
-              <Link href="/forgot-password" className="text-xs text-blue-400 hover:text-blue-300">
+              <Link href="/forgot-password" className="text-xs text-blue-400 hover:text-blue-300 transition-colors">
                 Forgot password?
               </Link>
             </div>
@@ -100,14 +102,14 @@ export default function LoginPage() {
               <input
                 {...register("password")}
                 type={showPw ? "text" : "password"}
-                placeholder="Your password"
-                className="input pr-10"
+                placeholder="••••••••••••"
+                className="input pr-11"
                 autoComplete="current-password"
               />
               <button
                 type="button"
                 onClick={() => setShowPw(!showPw)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
               >
                 {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
@@ -115,43 +117,42 @@ export default function LoginPage() {
             {errors.password && <p className="field-error">{errors.password.message}</p>}
           </div>
 
-          {/* MFA field — shown only after first step */}
           {mfaRequired && (
-            <div>
-              <label className="label">
-                <ShieldCheck size={14} className="inline mr-1 text-blue-400" />
-                6-digit MFA Code
-              </label>
+            <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <ShieldCheck size={16} className="text-blue-400" />
+                <p className="text-sm font-medium text-blue-300">Two-factor authentication</p>
+              </div>
               <input
                 {...register("mfaToken")}
                 type="text"
                 inputMode="numeric"
                 maxLength={6}
                 placeholder="000000"
-                className="input tracking-[0.3em] text-center text-lg"
+                className="input tracking-[0.4em] text-center text-xl font-mono"
                 autoFocus
               />
-              <p className="text-xs text-slate-500 mt-1">
-                Open your authenticator app and enter the current code. Or use a backup code (XX-XX format).
+              <p className="text-xs text-slate-500 mt-2">
+                Open your authenticator app and enter the 6-digit code.
               </p>
             </div>
           )}
 
-          <button type="submit" disabled={loading} className="btn-primary w-full flex items-center justify-center gap-2 mt-2">
-            {loading ? <Spinner size={16} /> : <LogIn size={16} />}
-            {mfaRequired ? "Verify & Sign In" : "Sign In"}
+          <button
+            type="submit"
+            disabled={loading}
+            className="btn-primary w-full h-11 flex items-center justify-center gap-2 text-base"
+          >
+            {loading ? <Spinner size={18} /> : null}
+            {loading ? "Signing in..." : mfaRequired ? "Verify & Sign In" : "Sign In"}
           </button>
         </form>
 
-        <p className="text-center text-slate-400 text-sm mt-6">
-          Don&apos;t have an account?{" "}
-          <Link href="/register" className="text-blue-400 hover:text-blue-300 font-medium">
-            Create one
+        <p className="text-center text-slate-400 text-sm mt-8">
+          New to GyanKosh?{" "}
+          <Link href="/register" className="text-blue-400 hover:text-blue-300 font-medium transition-colors">
+            Create an account
           </Link>
-        </p>
-
-        <p className="text-center text-xs text-slate-600 mt-4">
-          Protected by reCAPTCHA v3 — rate limiting and account lockout active
         </p>
       </div>
     </>
