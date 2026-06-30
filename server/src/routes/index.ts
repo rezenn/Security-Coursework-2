@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, Request, Response, NextFunction } from "express";
 import { body, param } from "express-validator";
 import {
   addLesson,
@@ -17,7 +17,7 @@ import {
 } from "../controllers/profile.controller";
 import {
   adminListTransactions,
-  createIntent,
+  createCheckoutSession,
   myTransactions,
   stripeWebhook,
 } from "../controllers/transaction.controller";
@@ -65,18 +65,33 @@ profileRouter.get("/export", requireAuth, exportProfile);
 
 export const paymentRouter = Router();
 paymentRouter.post(
-  "/create-intent",
+  "/create-checkout",
   requireAuth,
   createPaymentRateLimiter(),
   [body("courseId").isMongoId().withMessage("Valid courseId required")],
   validateRequest,
-  createIntent,
+  createCheckoutSession,
 );
+
+// Import express for raw body middleware - using require for this specific case
+// OR define raw body middleware inline
 paymentRouter.post(
   "/webhook",
-  express.raw({ type: "application/json" }), // Raw body required for Stripe signature verification
+  (req: Request, res: Response, next: NextFunction) => {
+    // This handles raw body for Stripe webhook
+    let rawBody = "";
+    req.on("data", (chunk) => {
+      rawBody += chunk.toString();
+    });
+    req.on("end", () => {
+      // @ts-ignore - attaching raw body to request
+      req.rawBody = rawBody;
+      next();
+    });
+  },
   stripeWebhook,
 );
+
 paymentRouter.get("/my-transactions", requireAuth, myTransactions);
 
 export const adminRouter = Router();
@@ -128,6 +143,3 @@ adminRouter.post(
   addLesson,
 );
 adminRouter.get("/transactions", adminListTransactions);
-
-// Import express for raw body middleware
-import express from "express";

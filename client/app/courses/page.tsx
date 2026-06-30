@@ -9,7 +9,15 @@ import { toast } from "sonner";
 import clsx from "clsx";
 
 const LEVELS = ["all", "beginner", "intermediate", "advanced"];
-const CATEGORIES = ["all", "Programming", "Design", "Security", "Data Science", "Business", "DevOps"];
+const CATEGORIES = [
+  "all",
+  "Programming",
+  "Design",
+  "Security",
+  "Data Science",
+  "Business",
+  "DevOps",
+];
 
 export default function CoursesPage() {
   const { user } = useAuth();
@@ -44,9 +52,18 @@ export default function CoursesPage() {
     }
     setPaying(courseId);
     try {
-      const { paymentUrl } = await paymentApi.initiate(courseId);
-      // Redirect to Khalti hosted payment page
-      window.location.href = paymentUrl;
+      // Use checkout instead of direct payment
+      const { url } = await paymentApi.createCheckout(courseId);
+
+      // If free course, url will be dashboard
+      if (url.includes("/dashboard")) {
+        toast.success("Course enrolled successfully!");
+        window.location.href = "/dashboard";
+        return;
+      }
+
+      // Redirect to Stripe Checkout
+      window.location.href = url;
     } catch (err: any) {
       const msg = err?.response?.data?.error;
       if (msg === "You are already enrolled in this course.") {
@@ -54,7 +71,6 @@ export default function CoursesPage() {
       } else {
         toast.error(msg || "Could not initiate payment. Try again.");
       }
-    } finally {
       setPaying(null);
     }
   };
@@ -68,14 +84,17 @@ export default function CoursesPage() {
           <div className="mb-8">
             <h1 className="text-2xl font-bold text-white">Browse Courses</h1>
             <p className="text-slate-400 text-sm mt-1">
-              {courses.length} courses available — pay securely via Khalti
+              {courses.length} courses available — pay securely via Stripe
             </p>
           </div>
 
           {/* Filters */}
           <div className="flex flex-wrap gap-3 mb-7">
             <div className="relative flex-1 min-w-[200px]">
-              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <Search
+                size={15}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+              />
               <input
                 className="input pl-9 h-10 text-sm"
                 placeholder="Search courses..."
@@ -90,7 +109,9 @@ export default function CoursesPage() {
             >
               {LEVELS.map((l) => (
                 <option key={l} value={l}>
-                  {l === "all" ? "All Levels" : l.charAt(0).toUpperCase() + l.slice(1)}
+                  {l === "all"
+                    ? "All Levels"
+                    : l.charAt(0).toUpperCase() + l.slice(1)}
                 </option>
               ))}
             </select>
@@ -148,11 +169,17 @@ export default function CoursesPage() {
                           {course.category}
                         </span>
                         <span
-                          className={clsx("text-xs px-2 py-0.5 rounded-md font-medium", {
-                            "bg-emerald-500/15 text-emerald-400": course.level === "beginner",
-                            "bg-amber-500/15 text-amber-400": course.level === "intermediate",
-                            "bg-rose-500/15 text-rose-400": course.level === "advanced",
-                          })}
+                          className={clsx(
+                            "text-xs px-2 py-0.5 rounded-md font-medium",
+                            {
+                              "bg-emerald-500/15 text-emerald-400":
+                                course.level === "beginner",
+                              "bg-amber-500/15 text-amber-400":
+                                course.level === "intermediate",
+                              "bg-rose-500/15 text-rose-400":
+                                course.level === "advanced",
+                            },
+                          )}
                         >
                           {course.level}
                         </span>
@@ -161,7 +188,9 @@ export default function CoursesPage() {
                       <h3 className="text-sm font-semibold text-white leading-snug mb-1.5 line-clamp-2">
                         {course.title}
                       </h3>
-                      <p className="text-xs text-slate-500 mb-1">By {course.instructor}</p>
+                      <p className="text-xs text-slate-500 mb-1">
+                        By {course.instructor}
+                      </p>
                       <p className="text-xs text-slate-400 line-clamp-2 mb-4 flex-1">
                         {course.description}
                       </p>
@@ -172,10 +201,12 @@ export default function CoursesPage() {
                           <p className="text-lg font-bold text-white">
                             {course.priceCents === 0
                               ? "Free"
-                              : `Rs. ${(course.priceCents / 100).toFixed(0)}`}
+                              : `$${(course.priceCents / 100).toFixed(2)}`}
                           </p>
                           {course.enrolledCount > 0 && (
-                            <p className="text-xs text-slate-500">{course.enrolledCount} enrolled</p>
+                            <p className="text-xs text-slate-500">
+                              {course.enrolledCount} enrolled
+                            </p>
                           )}
                         </div>
 
@@ -195,10 +226,10 @@ export default function CoursesPage() {
                               <ShoppingCart size={13} />
                             )}
                             {paying === course._id
-                              ? "Redirecting..."
+                              ? "Processing..."
                               : course.priceCents === 0
-                              ? "Enroll Free"
-                              : "Buy with Khalti"}
+                                ? "Enroll Free"
+                                : "Pay with Stripe"}
                           </button>
                         )}
                       </div>

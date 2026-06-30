@@ -23,8 +23,8 @@ export const API = {
     EXPORT: "/profile/export",
   },
   PAYMENTS: {
-    INITIATE: "/payments/initiate",
-    VERIFY: "/payments/verify",
+    CREATE_INTENT: "/payments/create-intent",
+    CREATE_CHECKOUT: "/payments/create-checkout", // Add this
     MY_TRANSACTIONS: "/payments/my-transactions",
   },
   ADMIN: {

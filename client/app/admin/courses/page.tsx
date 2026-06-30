@@ -4,7 +4,14 @@ import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { adminApi } from "@/lib/api";
 import { PageLoader, Spinner, EmptyState } from "@/components/shared";
 import {
-  BookOpen, Plus, Pencil, Trash2, Globe, EyeOff, X, CheckCircle,
+  BookOpen,
+  Plus,
+  Pencil,
+  Trash2,
+  Globe,
+  EyeOff,
+  X,
+  CheckCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import clsx from "clsx";
@@ -15,8 +22,8 @@ const EMPTY_FORM = {
   instructor: "",
   category: "Programming",
   level: "beginner",
-  priceDisplay: "0",   // shown in form as NPR display value
-  currency: "NPR",
+  priceDisplay: "0", // shown in form as display value (dollars)
+  currency: "USD",
   tags: "",
 };
 
@@ -60,8 +67,8 @@ export default function AdminCoursesPage() {
       instructor: c.instructor,
       category: c.category,
       level: c.level,
-      priceDisplay: String(Math.round(c.priceCents / 100)),
-      currency: c.currency || "NPR",
+      priceDisplay: String(c.priceCents / 100),
+      currency: c.currency || "USD",
       tags: (c.tags || []).join(", "),
     });
     setShowForm(true);
@@ -71,7 +78,7 @@ export default function AdminCoursesPage() {
     e.preventDefault();
     setSaving(true);
     try {
-      // Store as paisa (1 NPR = 100 paisa) to match Khalti minimum
+      // Store as cents (1 USD = 100 cents)
       const priceCents = Math.round(parseFloat(form.priceDisplay || "0") * 100);
       const payload = {
         title: form.title,
@@ -142,7 +149,10 @@ export default function AdminCoursesPage() {
             {published} live · {drafts} draft
           </p>
         </div>
-        <button onClick={openCreate} className="btn-primary flex items-center gap-2 h-9 text-sm">
+        <button
+          onClick={openCreate}
+          className="btn-primary flex items-center gap-2 h-9 text-sm"
+        >
           <Plus size={15} /> New Course
         </button>
       </div>
@@ -180,7 +190,9 @@ export default function AdminCoursesPage() {
                   className="input resize-none"
                   rows={3}
                   value={form.description}
-                  onChange={(e) => setForm({ ...form, description: e.target.value })}
+                  onChange={(e) =>
+                    setForm({ ...form, description: e.target.value })
+                  }
                   placeholder="What will students learn?"
                   required
                 />
@@ -190,7 +202,9 @@ export default function AdminCoursesPage() {
                 <input
                   className="input"
                   value={form.instructor}
-                  onChange={(e) => setForm({ ...form, instructor: e.target.value })}
+                  onChange={(e) =>
+                    setForm({ ...form, instructor: e.target.value })
+                  }
                   placeholder="Instructor name"
                   required
                 />
@@ -201,11 +215,20 @@ export default function AdminCoursesPage() {
                   <select
                     className="input"
                     value={form.category}
-                    onChange={(e) => setForm({ ...form, category: e.target.value })}
+                    onChange={(e) =>
+                      setForm({ ...form, category: e.target.value })
+                    }
                   >
-                    {["Programming", "Design", "Security", "Data Science", "Business", "DevOps"].map(
-                      (c) => <option key={c}>{c}</option>,
-                    )}
+                    {[
+                      "Programming",
+                      "Design",
+                      "Security",
+                      "Data Science",
+                      "Business",
+                      "DevOps",
+                    ].map((c) => (
+                      <option key={c}>{c}</option>
+                    ))}
                   </select>
                 </div>
                 <div>
@@ -213,7 +236,9 @@ export default function AdminCoursesPage() {
                   <select
                     className="input"
                     value={form.level}
-                    onChange={(e) => setForm({ ...form, level: e.target.value })}
+                    onChange={(e) =>
+                      setForm({ ...form, level: e.target.value })
+                    }
                   >
                     {["beginner", "intermediate", "advanced"].map((l) => (
                       <option key={l}>{l}</option>
@@ -222,22 +247,29 @@ export default function AdminCoursesPage() {
                 </div>
               </div>
               <div>
-                <label className="label">Price (NPR) — enter 0 for free</label>
+                <label className="label">Price (USD) — enter 0 for free</label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">Rs.</span>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">
+                    $
+                  </span>
                   <input
                     type="number"
                     min="0"
-                    step="1"
+                    step="0.01"
                     className="input pl-10"
                     value={form.priceDisplay}
-                    onChange={(e) => setForm({ ...form, priceDisplay: e.target.value })}
-                    placeholder="0"
+                    onChange={(e) =>
+                      setForm({ ...form, priceDisplay: e.target.value })
+                    }
+                    placeholder="0.00"
                   />
                 </div>
-                {parseFloat(form.priceDisplay) > 0 && parseFloat(form.priceDisplay) < 10 && (
-                  <p className="text-xs text-amber-400 mt-1">⚠ Khalti minimum is Rs. 10</p>
-                )}
+                {parseFloat(form.priceDisplay) > 0 &&
+                  parseFloat(form.priceDisplay) < 0.5 && (
+                    <p className="text-xs text-amber-400 mt-1">
+                      ⚠ Stripe minimum is $0.50
+                    </p>
+                  )}
               </div>
               <div>
                 <label className="label">Tags (comma-separated)</label>
@@ -275,12 +307,24 @@ export default function AdminCoursesPage() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-slate-700">
-              <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Course</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Category</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Price</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Enrolled</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Status</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Actions</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">
+                Course
+              </th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">
+                Category
+              </th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">
+                Price
+              </th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">
+                Enrolled
+              </th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">
+                Status
+              </th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">
+                Actions
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -307,25 +351,37 @@ export default function AdminCoursesPage() {
                 >
                   <td className="px-4 py-3">
                     <p className="font-medium text-white">{c.title}</p>
-                    <p className="text-xs text-slate-400 mt-0.5">by {c.instructor}</p>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      by {c.instructor}
+                    </p>
                   </td>
-                  <td className="px-4 py-3 text-slate-300 text-sm">{c.category}</td>
+                  <td className="px-4 py-3 text-slate-300 text-sm">
+                    {c.category}
+                  </td>
                   <td className="px-4 py-3 text-white font-semibold text-sm">
                     {c.priceCents === 0 ? (
                       <span className="text-emerald-400">Free</span>
                     ) : (
-                      `Rs. ${Math.round(c.priceCents / 100)}`
+                      `$${(c.priceCents / 100).toFixed(2)}`
                     )}
                   </td>
-                  <td className="px-4 py-3 text-slate-300 text-sm">{c.enrolledCount}</td>
+                  <td className="px-4 py-3 text-slate-300 text-sm">
+                    {c.enrolledCount}
+                  </td>
                   <td className="px-4 py-3">
-                    <span className={clsx(
-                      "inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-lg",
-                      c.isPublished
-                        ? "bg-emerald-500/15 text-emerald-400"
-                        : "bg-slate-700 text-slate-400",
-                    )}>
-                      {c.isPublished ? <CheckCircle size={11} /> : <EyeOff size={11} />}
+                    <span
+                      className={clsx(
+                        "inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-lg",
+                        c.isPublished
+                          ? "bg-emerald-500/15 text-emerald-400"
+                          : "bg-slate-700 text-slate-400",
+                      )}
+                    >
+                      {c.isPublished ? (
+                        <CheckCircle size={11} />
+                      ) : (
+                        <EyeOff size={11} />
+                      )}
                       {c.isPublished ? "Live" : "Draft"}
                     </span>
                   </td>
@@ -341,14 +397,20 @@ export default function AdminCoursesPage() {
                             ? "bg-slate-700 hover:bg-slate-600 text-slate-300"
                             : "bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400",
                         )}
-                        title={c.isPublished ? "Unpublish course" : "Publish course"}
+                        title={
+                          c.isPublished ? "Unpublish course" : "Publish course"
+                        }
                       >
                         {publishingId === c._id ? (
                           <Spinner size={11} />
                         ) : c.isPublished ? (
-                          <><EyeOff size={11} /> Unpublish</>
+                          <>
+                            <EyeOff size={11} /> Unpublish
+                          </>
                         ) : (
-                          <><Globe size={11} /> Publish</>
+                          <>
+                            <Globe size={11} /> Publish
+                          </>
                         )}
                       </button>
                       <button
@@ -378,7 +440,9 @@ export default function AdminCoursesPage() {
       {courses.some((c) => !c.isPublished) && (
         <p className="text-xs text-slate-500 mt-4 flex items-center gap-1.5">
           <Globe size={12} />
-          Draft courses are only visible to admins. Click <strong className="text-slate-400">Publish</strong> to make a course visible to students.
+          Draft courses are only visible to admins. Click{" "}
+          <strong className="text-slate-400">Publish</strong> to make a course
+          visible to students.
         </p>
       )}
     </div>

@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import {
-  createStripePaymentIntent,
+  createStripeCheckoutSession,
   handleStripeWebhook,
   getUserTransactions,
   getAllTransactions,
@@ -10,7 +10,8 @@ import { logSecurityEvent } from "../utils/logger.utils";
 const ip = (req: Request) => req.ip || "unknown";
 
 // POST /api/payments/create-intent
-export const createIntent = async (
+// Add this new function
+export const createCheckoutSession = async (
   req: Request,
   res: Response,
 ): Promise<void> => {
@@ -26,7 +27,7 @@ export const createIntent = async (
   }
 
   try {
-    const result = await createStripePaymentIntent(
+    const result = await createStripeCheckoutSession(
       req.user.sub,
       courseId,
       ip(req),
@@ -39,7 +40,7 @@ export const createIntent = async (
     };
     const [status, message] = msgMap[err.message] || [
       500,
-      "Payment initiation failed.",
+      "Checkout creation failed.",
     ];
     res.status(status).json({ error: message });
   }
@@ -58,7 +59,15 @@ export const stripeWebhook = async (
   }
 
   try {
-    await handleStripeWebhook(req.body, signature);
+    // Get raw body from middleware
+    // @ts-ignore - rawBody attached by middleware
+    const rawBody = req.rawBody || req.body;
+
+    // If rawBody is a string, convert to Buffer
+    const bodyBuffer =
+      typeof rawBody === "string" ? Buffer.from(rawBody, "utf8") : rawBody;
+
+    await handleStripeWebhook(bodyBuffer, signature);
     res.status(200).json({ received: true });
   } catch (err: any) {
     const msgMap: Record<string, [number, string]> = {
