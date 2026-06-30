@@ -27,13 +27,12 @@ export default function AdminTransactionsPage() {
 
   if (loading) return <PageLoader />;
 
-  const totalRevenuePaisa = transactions
+  const totalRevenueCents = transactions
     .filter((t) => t.status === "completed")
     .reduce((s: number, t: any) => s + (t.amountCents || 0), 0);
 
   return (
     <div className="max-w-6xl mx-auto">
-      {/* Header */}
       <div className="flex items-start justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-white">Transactions</h1>
@@ -44,7 +43,7 @@ export default function AdminTransactionsPage() {
             <TrendingUp size={12} /> Total Revenue
           </div>
           <p className="text-xl font-bold text-emerald-400">
-            Rs. {(totalRevenuePaisa / 100).toFixed(0)}
+            ${(totalRevenueCents / 100).toFixed(2)}
           </p>
         </div>
       </div>
@@ -53,49 +52,82 @@ export default function AdminTransactionsPage() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-slate-700">
-              <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">User</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Course</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Amount</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Status</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Khalti PIDX</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Date</th>
+              {["User", "Course", "Amount", "Status", "Stripe ID", "Date"].map(
+                (h) => (
+                  <th
+                    key={h}
+                    className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider"
+                  >
+                    {h}
+                  </th>
+                ),
+              )}
             </tr>
           </thead>
           <tbody>
             {fetching ? (
-              <tr><td colSpan={6} className="py-12 text-center"><Spinner size={20} className="text-blue-400 mx-auto" /></td></tr>
+              <tr>
+                <td colSpan={6} className="py-12 text-center">
+                  <Spinner size={20} className="text-blue-400 mx-auto" />
+                </td>
+              </tr>
             ) : transactions.length === 0 ? (
-              <tr><td colSpan={6}><EmptyState message="No transactions yet" icon={<CreditCard size={32} />} /></td></tr>
+              <tr>
+                <td colSpan={6}>
+                  <EmptyState
+                    message="No transactions yet"
+                    icon={<CreditCard size={32} />}
+                  />
+                </td>
+              </tr>
             ) : (
               transactions.map((tx: any) => (
-                <tr key={tx._id} className="border-b border-slate-700/40 last:border-0 hover:bg-slate-700/20">
+                <tr
+                  key={tx._id}
+                  className="border-b border-slate-700/40 last:border-0 hover:bg-slate-700/20"
+                >
                   <td className="px-4 py-3">
-                    <p className="text-white font-medium">{tx.user?.username || "—"}</p>
-                    <p className="text-xs text-slate-400">{tx.user?.email || "—"}</p>
+                    <p className="text-white font-medium">
+                      {tx.user?.username || "—"}
+                    </p>
+                    <p className="text-xs text-slate-400">
+                      {tx.user?.email || "—"}
+                    </p>
                   </td>
-                  <td className="px-4 py-3 text-slate-300 text-sm">{tx.course?.title || "—"}</td>
+                  <td className="px-4 py-3 text-slate-300 text-sm">
+                    {tx.course?.title || "—"}
+                  </td>
                   <td className="px-4 py-3">
                     <span className="font-semibold text-white">
-                      {tx.amountCents === 0
-                        ? <span className="text-emerald-400">Free</span>
-                        : `Rs. ${(tx.amountCents / 100).toFixed(0)}`}
+                      {tx.amountCents === 0 ? (
+                        <span className="text-emerald-400">Free</span>
+                      ) : (
+                        `$${(tx.amountCents / 100).toFixed(2)}`
+                      )}
                     </span>
                   </td>
                   <td className="px-4 py-3">
-                    <span className={clsx(
-                      "inline-flex items-center text-xs font-medium px-2.5 py-1 rounded-lg",
-                      {
-                        "bg-emerald-500/15 text-emerald-400": tx.status === "completed",
-                        "bg-red-500/15 text-red-400": tx.status === "failed",
-                        "bg-amber-500/15 text-amber-400": tx.status === "pending",
-                        "bg-slate-600/50 text-slate-400": tx.status === "refunded",
-                      },
-                    )}>
+                    <span
+                      className={clsx(
+                        "inline-flex items-center text-xs font-medium px-2.5 py-1 rounded-lg",
+                        {
+                          "bg-emerald-500/15 text-emerald-400":
+                            tx.status === "completed",
+                          "bg-red-500/15 text-red-400": tx.status === "failed",
+                          "bg-amber-500/15 text-amber-400":
+                            tx.status === "pending",
+                          "bg-slate-600/50 text-slate-400":
+                            tx.status === "refunded",
+                        },
+                      )}
+                    >
                       {tx.status}
                     </span>
                   </td>
-                  <td className="px-4 py-3 font-mono text-xs text-slate-500 max-w-[120px] truncate">
-                    {tx.pidx || "—"}
+                  <td className="px-4 py-3 font-mono text-xs text-slate-500 max-w-[160px] truncate">
+                    {tx.stripePaymentIntentId?.startsWith("free_")
+                      ? "—"
+                      : tx.stripePaymentIntentId || "—"}
                   </td>
                   <td className="px-4 py-3 text-slate-400 text-xs whitespace-nowrap">
                     {new Date(tx.createdAt).toLocaleString()}
