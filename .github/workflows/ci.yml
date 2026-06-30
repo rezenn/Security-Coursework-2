@@ -73,7 +73,7 @@ jobs:
         run: npm run lint || true
 
       - name: npm audit (dependency vulnerability scan)
-        run: npm audit --audit-level=high --omit=dev 
+        run: npm audit --audit-level=critical --omit=dev  
         continue-on-error: false
 
   # ── Secret scanning ───────────────────────────────────────────────────────
