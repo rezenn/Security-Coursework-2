@@ -1,9 +1,10 @@
 "use client";
 import { useEffect, useState } from "react";
-import { courseApi, paymentApi } from "@/lib/api";
+import { courseApi } from "@/lib/api";
 import { useAuth } from "@/context/authContext";
 import { Spinner, EmptyState } from "@/components/shared";
 import { AppSidebar } from "@/components/shared/Sidebar";
+import { PaymentModal } from "@/components/payment/PaymentModal";
 import { BookOpen, Search, CheckCircle, ShoppingCart } from "lucide-react";
 import { toast } from "sonner";
 import clsx from "clsx";
@@ -27,6 +28,8 @@ export default function CoursesPage() {
   const [level, setLevel] = useState("all");
   const [category, setCategory] = useState("all");
   const [paying, setPaying] = useState<string | null>(null);
+  const [selectedCourse, setSelectedCourse] = useState<any>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const enrolledIds: string[] = (user?.enrolledCourses ?? []).map(
     (c: any) => c._id || c,
@@ -45,34 +48,27 @@ export default function CoursesPage() {
       .finally(() => setLoading(false));
   }, [search, level, category]);
 
-  const handlePurchase = async (courseId: string) => {
+  const handlePurchaseClick = (course: any) => {
     if (!user) {
       toast.error("Please log in to purchase courses");
       return;
     }
-    setPaying(courseId);
-    try {
-      // Use checkout instead of direct payment
-      const { url } = await paymentApi.createCheckout(courseId);
+    setSelectedCourse(course);
+    setIsModalOpen(true);
+  };
 
-      // If free course, url will be dashboard
-      if (url.includes("/dashboard")) {
-        toast.success("Course enrolled successfully!");
-        window.location.href = "/dashboard";
-        return;
-      }
-
-      // Redirect to Stripe Checkout
-      window.location.href = url;
-    } catch (err: any) {
-      const msg = err?.response?.data?.error;
-      if (msg === "You are already enrolled in this course.") {
-        toast.info("You are already enrolled in this course.");
-      } else {
-        toast.error(msg || "Could not initiate payment. Try again.");
-      }
-      setPaying(null);
-    }
+  const handleModalSuccess = () => {
+    // Refresh courses to update enrollment status
+    setLoading(true);
+    courseApi
+      .list({
+        search,
+        level: level !== "all" ? level : "",
+        category: category !== "all" ? category : "",
+      })
+      .then((d) => setCourses(d.courses))
+      .catch(() => toast.error("Failed to refresh courses"))
+      .finally(() => setLoading(false));
   };
 
   return (
@@ -216,20 +212,14 @@ export default function CoursesPage() {
                           </div>
                         ) : (
                           <button
-                            onClick={() => handlePurchase(course._id)}
+                            onClick={() => handlePurchaseClick(course)}
                             disabled={paying === course._id}
                             className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white text-sm font-medium px-3.5 py-2 rounded-lg transition-colors"
                           >
-                            {paying === course._id ? (
-                              <Spinner size={13} />
-                            ) : (
-                              <ShoppingCart size={13} />
-                            )}
-                            {paying === course._id
-                              ? "Processing..."
-                              : course.priceCents === 0
-                                ? "Enroll Free"
-                                : "Pay with Stripe"}
+                            <ShoppingCart size={13} />
+                            {course.priceCents === 0
+                              ? "Enroll Free"
+                              : "Buy Now"}
                           </button>
                         )}
                       </div>
@@ -241,6 +231,21 @@ export default function CoursesPage() {
           )}
         </div>
       </main>
+
+      {/* Payment Modal */}
+      {selectedCourse && (
+        <PaymentModal
+          isOpen={isModalOpen}
+          onClose={() => {
+            setIsModalOpen(false);
+            setSelectedCourse(null);
+          }}
+          courseTitle={selectedCourse.title}
+          courseId={selectedCourse._id}
+          amount={selectedCourse.priceCents}
+          onSuccess={handleModalSuccess}
+        />
+      )}
     </div>
   );
 }
