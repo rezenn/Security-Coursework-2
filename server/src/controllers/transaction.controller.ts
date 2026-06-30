@@ -1,77 +1,110 @@
 import { Request, Response } from "express";
 import {
-  initiateKhaltiPayment,
-  verifyKhaltiPayment,
+  createStripePaymentIntent,
+  handleStripeWebhook,
+  getUserTransactions,
+  getAllTransactions,
 } from "../services/transaction.service";
-import Transaction from "../models/transaction.model";
 import { logSecurityEvent } from "../utils/logger.utils";
 
 const ip = (req: Request) => req.ip || "unknown";
 
-// POST /api/payments/initiate
-export const initiatePayment = async (req: Request, res: Response): Promise<void> => {
-  if (!req.user) { res.status(401).json({ error: "Authentication required" }); return; }
+// POST /api/payments/create-intent
+export const createIntent = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  if (!req.user) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+
   const { courseId } = req.body;
-  if (!courseId) { res.status(400).json({ error: "courseId is required" }); return; }
+  if (!courseId) {
+    res.status(400).json({ error: "courseId is required" });
+    return;
+  }
 
   try {
-    const result = await initiateKhaltiPayment(req.user.sub, courseId, ip(req));
+    const result = await createStripePaymentIntent(
+      req.user.sub,
+      courseId,
+      ip(req),
+    );
     res.status(200).json(result);
   } catch (err: any) {
     const msgMap: Record<string, [number, string]> = {
       ALREADY_ENROLLED: [409, "You are already enrolled in this course."],
       COURSE_NOT_FOUND: [404, "Course not found or not published."],
-      MIN_AMOUNT: [400, "Course price must be at least Rs. 10 for Khalti payments."],
     };
-    const [status, message] = msgMap[err.message] || [500, "Payment initiation failed."];
+    const [status, message] = msgMap[err.message] || [
+      500,
+      "Payment initiation failed.",
+    ];
     res.status(status).json({ error: message });
   }
 };
 
-// POST /api/payments/verify
-export const verifyPayment = async (req: Request, res: Response): Promise<void> => {
-  if (!req.user) { res.status(401).json({ error: "Authentication required" }); return; }
-  const { pidx } = req.body;
-  if (!pidx) { res.status(400).json({ error: "pidx is required" }); return; }
+// POST /api/payments/webhook
+export const stripeWebhook = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  const signature = req.headers["stripe-signature"] as string;
+
+  if (!signature) {
+    res.status(400).json({ error: "Stripe signature header missing" });
+    return;
+  }
 
   try {
-    const result = await verifyKhaltiPayment(pidx, req.user.sub, ip(req));
-    res.status(200).json(result);
+    await handleStripeWebhook(req.body, signature);
+    res.status(200).json({ received: true });
   } catch (err: any) {
     const msgMap: Record<string, [number, string]> = {
-      TRANSACTION_NOT_FOUND: [404, "Transaction not found."],
-      PAYMENT_NOT_COMPLETED: [402, "Khalti payment not completed."],
-      AMOUNT_MISMATCH: [400, "Payment amount mismatch — possible tampering."],
+      WEBHOOK_SIGNATURE_INVALID: [401, "Invalid webhook signature"],
+      MISSING_METADATA: [400, "Missing metadata in payment intent"],
+      HMAC_VERIFICATION_FAILED: [403, "HMAC verification failed"],
+      TRANSACTION_NOT_FOUND: [404, "Transaction not found"],
+      AMOUNT_MISMATCH: [400, "Amount mismatch"],
     };
-    const [status, message] = msgMap[err.message] || [500, "Verification failed."];
-    logSecurityEvent("payment_verify_failed", req.user.sub, ip(req), { pidx, error: err.message });
+    const [status, message] = msgMap[err.message] || [
+      500,
+      "Webhook processing failed",
+    ];
+
+    logSecurityEvent("webhook_failed", null, ip(req), { error: err.message });
     res.status(status).json({ error: message });
   }
 };
 
 // GET /api/payments/my-transactions
-export const myTransactions = async (req: Request, res: Response): Promise<void> => {
-  if (!req.user) { res.status(401).json({ error: "Authentication required" }); return; }
-  const txns = await Transaction.find({ user: req.user.sub })
-    .populate("course", "title slug thumbnail")
-    .sort({ createdAt: -1 });
-  res.status(200).json({ transactions: txns });
+export const myTransactions = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  if (!req.user) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+
+  const transactions = await getUserTransactions(req.user.sub);
+  res.status(200).json({ transactions });
 };
 
 // GET /api/admin/transactions
-export const adminListTransactions = async (req: Request, res: Response): Promise<void> => {
+export const adminListTransactions = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
   const { status, page = "1", limit = "50" } = req.query;
   const filter: Record<string, unknown> = {};
   if (status) filter.status = status;
-  const skip = (parseInt(page as string) - 1) * parseInt(limit as string);
-  const [transactions, total] = await Promise.all([
-    Transaction.find(filter)
-      .populate("user", "username email")
-      .populate("course", "title")
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(parseInt(limit as string)),
-    Transaction.countDocuments(filter),
-  ]);
-  res.status(200).json({ transactions, total });
+
+  const result = await getAllTransactions(
+    filter,
+    parseInt(page as string),
+    parseInt(limit as string),
+  );
+  res.status(200).json(result);
 };

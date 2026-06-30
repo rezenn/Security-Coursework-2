@@ -53,9 +53,11 @@ const config = {
     enabled: env === "production" && !!process.env.RECAPTCHA_SECRET_KEY,
   },
 
-  // Khalti payment gateway
-  khalti: {
-    secretKey: process.env.KHALTI_SECRET_KEY || "",
+  // Stripe payment gateway
+  stripe: {
+    secretKey: process.env.STRIPE_SECRET_KEY || "",
+    webhookSecret: process.env.STRIPE_WEBHOOK_SECRET || "",
+    publishableKey: process.env.STRIPE_PUBLISHABLE_KEY || "",
   },
 
   google: {

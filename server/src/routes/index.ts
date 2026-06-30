@@ -17,9 +17,9 @@ import {
 } from "../controllers/profile.controller";
 import {
   adminListTransactions,
-  initiatePayment,
+  createIntent,
   myTransactions,
-  verifyPayment,
+  stripeWebhook,
 } from "../controllers/transaction.controller";
 import {
   deleteUser,
@@ -65,19 +65,17 @@ profileRouter.get("/export", requireAuth, exportProfile);
 
 export const paymentRouter = Router();
 paymentRouter.post(
-  "/initiate",
+  "/create-intent",
   requireAuth,
   createPaymentRateLimiter(),
   [body("courseId").isMongoId().withMessage("Valid courseId required")],
   validateRequest,
-  initiatePayment,
+  createIntent,
 );
 paymentRouter.post(
-  "/verify",
-  requireAuth,
-  [body("pidx").isString().notEmpty().withMessage("pidx required")],
-  validateRequest,
-  verifyPayment,
+  "/webhook",
+  express.raw({ type: "application/json" }), // Raw body required for Stripe signature verification
+  stripeWebhook,
 );
 paymentRouter.get("/my-transactions", requireAuth, myTransactions);
 
@@ -104,7 +102,9 @@ adminRouter.post(
   [
     body("title").notEmpty().withMessage("Title required"),
     body("description").notEmpty().withMessage("Description required"),
-    body("priceCents").isInt({ min: 0 }).withMessage("Price must be a positive number"),
+    body("priceCents")
+      .isInt({ min: 0 })
+      .withMessage("Price must be a positive number"),
   ],
   validateRequest,
   createCourse,
@@ -128,3 +128,6 @@ adminRouter.post(
   addLesson,
 );
 adminRouter.get("/transactions", adminListTransactions);
+
+// Import express for raw body middleware
+import express from "express";
