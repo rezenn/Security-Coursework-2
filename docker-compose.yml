@@ -1,7 +1,7 @@
 version: "3.9"
 
 services:
-  # ── MongoDB (local dev only — use Atlas in prod) ───────────────────────────
+  # ── MongoDB (local dev only — use Atlas in production) ──────────────────────
   mongo:
     image: mongo:7.0-jammy
     container_name: gyankosh-mongo
@@ -33,7 +33,7 @@ services:
       - ./server/.env
     environment:
       NODE_ENV: production
-      # Override MONGO_URI to use the local docker mongo if not using Atlas
+      # Uncomment to use the local Docker Mongo instead of Atlas:
       # MONGO_URI: mongodb://mongo:27017/gyankosh
     depends_on:
       mongo:
@@ -43,19 +43,28 @@ services:
     networks:
       - gyankosh-net
     healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:5000/api/health',(r)=>process.exit(r.statusCode===200?0:1))"]
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "require('http').get('http://localhost:5000/api/health',(r)=>process.exit(r.statusCode===200?0:1))",
+        ]
       interval: 30s
       timeout: 5s
       retries: 3
       start_period: 15s
 
   # ── Next.js client ────────────────────────────────────────────────────────
+  # NEXT_PUBLIC_* vars are baked in at BUILD time and used by the BROWSER,
+  # so they must point to a URL the browser can reach (localhost:5000),
+  # not the internal Docker service name (server:5000).
   client:
     build:
       context: ./client
       dockerfile: Dockerfile
       args:
-        NEXT_PUBLIC_API_URL: http://server:5000
+        NEXT_PUBLIC_API_URL: http://localhost:5000
         NEXT_PUBLIC_RECAPTCHA_SITE_KEY: ${NEXT_PUBLIC_RECAPTCHA_SITE_KEY}
         NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY}
     container_name: gyankosh-client

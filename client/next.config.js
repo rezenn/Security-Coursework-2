@@ -1,5 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Required for the Docker multi-stage build (Dockerfile copies
+  // .next/standalone) — produces a minimal, self-contained server bundle.
+  output: "standalone",
+
   async rewrites() {
     return [
       {
@@ -8,9 +12,15 @@ const nextConfig = {
       },
     ];
   },
+
   images: {
     remotePatterns: [
-      { protocol: "http", hostname: "localhost", port: "5000", pathname: "/uploads/**" },
+      {
+        protocol: "http",
+        hostname: "localhost",
+        port: "5000",
+        pathname: "/uploads/**",
+      },
       { protocol: "https", hostname: "**" },
     ],
   },

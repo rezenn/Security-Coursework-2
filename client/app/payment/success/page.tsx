@@ -1,46 +1,35 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { CheckCircle, Loader2, XCircle } from "lucide-react";
+import { CheckCircle, Loader2 } from "lucide-react";
 import { useAuth } from "@/context/authContext";
-import Link from "next/link";
+import { toast } from "sonner";
 
 export default function PaymentSuccessPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { refreshUser } = useAuth();
-  const [status, setStatus] = useState<"loading" | "success" | "error">(
-    "loading",
-  );
-  const [message, setMessage] = useState("");
-  const [courseTitle, setCourseTitle] = useState("");
+  const [status, setStatus] = useState<"loading" | "success">("loading");
 
   useEffect(() => {
     const sessionId = searchParams.get("session_id");
 
     if (!sessionId) {
-      setStatus("error");
-      setMessage("No payment session found.");
+      toast.error("No payment session found");
+      router.push("/courses");
       return;
     }
 
-    // Check if session_id starts with "free_" (free course)
-    if (sessionId.startsWith("free_")) {
+    // Refresh user to get updated enrolled courses
+    refreshUser().then(() => {
       setStatus("success");
-      setCourseTitle("your free course");
-      refreshUser();
-      setTimeout(() => router.push("/dashboard"), 3000);
-      return;
-    }
+      toast.success("🎉 Payment successful! You are now enrolled.");
 
-    // For paid courses, the webhook will handle the completion
-    // We just show success and let the webhook do the rest
-    setStatus("success");
-    setCourseTitle("your course");
-    refreshUser();
-
-    // Redirect to dashboard after 5 seconds
-    setTimeout(() => router.push("/dashboard"), 5000);
+      // Redirect to dashboard after 3 seconds
+      setTimeout(() => {
+        router.push("/dashboard");
+      }, 3000);
+    });
   }, [searchParams, router, refreshUser]);
 
   return (
@@ -68,34 +57,10 @@ export default function PaymentSuccessPage() {
               Payment successful! 🎉
             </h2>
             <p className="text-slate-400 text-sm mb-6">
-              You now have access to{" "}
-              <strong className="text-white">{courseTitle}</strong>.
+              You now have access to your course. Redirecting to dashboard...
             </p>
             <div className="flex items-center justify-center gap-1.5 text-sm text-blue-400">
-              <Loader2 size={14} className="animate-spin" /> Redirecting to
-              dashboard...
-            </div>
-          </>
-        )}
-        {status === "error" && (
-          <>
-            <div className="w-16 h-16 bg-red-600/20 rounded-full flex items-center justify-center mx-auto mb-5">
-              <XCircle size={28} className="text-red-400" />
-            </div>
-            <h2 className="text-xl font-bold text-white mb-2">
-              Payment verification failed
-            </h2>
-            <p className="text-slate-400 text-sm mb-6">{message}</p>
-            <div className="flex flex-col gap-3">
-              <Link href="/courses" className="btn-primary w-full text-center">
-                Browse Courses
-              </Link>
-              <Link
-                href="/dashboard"
-                className="btn-secondary w-full text-center"
-              >
-                Go to Dashboard
-              </Link>
+              <Loader2 size={14} className="animate-spin" /> Redirecting...
             </div>
           </>
         )}

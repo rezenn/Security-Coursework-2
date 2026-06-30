@@ -16,6 +16,7 @@ import {
   createLoginRateLimiter,
 } from "./middleware/rateLimiter.middleware";
 import { errorHandler } from "./middleware/error.middleware";
+import { issueCsrfToken, verifyCsrfToken } from "./middleware/csrf.middleware";
 import authRoutes from "./routes/auth.routes";
 import {
   courseRouter,
@@ -34,10 +35,19 @@ app.use(
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        scriptSrc: ["'self'"],
+        scriptSrc: [
+          "'self'",
+          "https://js.stripe.com",
+          "https://www.google.com",
+        ],
         styleSrc: ["'self'", "'unsafe-inline'"],
         imgSrc: ["'self'", "data:", "https:"],
-        connectSrc: ["'self'"],
+        connectSrc: ["'self'", "https://api.stripe.com"],
+        frameSrc: [
+          "https://js.stripe.com",
+          "https://hooks.stripe.com",
+          "https://www.google.com",
+        ],
       },
     },
     hsts: { maxAge: 31536000, includeSubDomains: true },
@@ -50,20 +60,35 @@ app.use(
     origin: config.frontendUrl,
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
-    allowedHeaders: ["Content-Type", "Authorization", "x-captcha-token"],
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "x-captcha-token",
+      "x-csrf-token",
+    ],
+    exposedHeaders: ["x-csrf-token"],
   }),
 );
+
+// ── Stripe webhook needs the RAW body for signature verification.
+// It must be registered BEFORE express.json() globally parses the body.
+// (The actual express.raw() middleware is attached to that one route in
+// routes/index.ts — this comment documents why route order matters.)
 
 // ── Body parsers ──────────────────────────────────────────────────────────────
 app.use(express.json({ limit: "15kb" }));
 app.use(express.urlencoded({ extended: true, limit: "15kb" }));
 app.use(cookieParser(config.cookie.secret));
 
-// ── Security middleware ───────────────────────────────────────────────────────
+// ── CSRF protection (double-submit cookie) ────────────────────────────────────
+app.use(issueCsrfToken);
+app.use(verifyCsrfToken);
+
+// ── HTTP Parameter Pollution + NoSQL injection prevention ─────────────────────
 app.use(hpp());
 app.use(mongoSanitize());
 
-// ── Inline XSS sanitizer (replaces deprecated xss-clean) ─────────────────────
+// ── Inline XSS sanitizer (replaces deprecated xss-clean) ──────────────────────
 const escapeHtml = (str: string): string =>
   str
     .replace(/&/g, "&amp;")
@@ -91,7 +116,7 @@ app.use((req: Request, _res: Response, next: NextFunction) => {
   next();
 });
 
-// ── Passport (Google OAuth — stateless) ───────────────────────────────────────
+// ── Passport (Google OAuth — stateless) ────────────────────────────────────────
 app.use(passport.initialize());
 
 // ── Request logging ───────────────────────────────────────────────────────────

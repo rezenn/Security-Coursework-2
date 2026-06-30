@@ -27,7 +27,6 @@ export default function CoursesPage() {
   const [search, setSearch] = useState("");
   const [level, setLevel] = useState("all");
   const [category, setCategory] = useState("all");
-  const [paying, setPaying] = useState<string | null>(null);
   const [selectedCourse, setSelectedCourse] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -60,12 +59,12 @@ export default function CoursesPage() {
   const handleModalSuccess = () => {
     // Refresh courses to update enrollment status
     setLoading(true);
+    const params: Record<string, string> = {};
+    if (search) params.search = search;
+    if (level !== "all") params.level = level;
+    if (category !== "all") params.category = category;
     courseApi
-      .list({
-        search,
-        level: level !== "all" ? level : "",
-        category: category !== "all" ? category : "",
-      })
+      .list(params)
       .then((d) => setCourses(d.courses))
       .catch(() => toast.error("Failed to refresh courses"))
       .finally(() => setLoading(false));
@@ -213,8 +212,7 @@ export default function CoursesPage() {
                         ) : (
                           <button
                             onClick={() => handlePurchaseClick(course)}
-                            disabled={paying === course._id}
-                            className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white text-sm font-medium px-3.5 py-2 rounded-lg transition-colors"
+                            className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-3.5 py-2 rounded-lg transition-colors"
                           >
                             <ShoppingCart size={13} />
                             {course.priceCents === 0
@@ -232,7 +230,7 @@ export default function CoursesPage() {
         </div>
       </main>
 
-      {/* Payment Modal */}
+      {/* Payment Modal - Small Popup */}
       {selectedCourse && (
         <PaymentModal
           isOpen={isModalOpen}

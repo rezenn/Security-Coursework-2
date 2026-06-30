@@ -1,7 +1,11 @@
 "use client";
 import {
-  createContext, useContext, useState,
-  useEffect, useCallback, ReactNode,
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+  ReactNode,
 } from "react";
 import Cookies from "js-cookie";
 import api from "@/lib/api/axios";
@@ -16,7 +20,12 @@ export interface AuthUser {
   role: UserRole;
   isEmailVerified: boolean;
   mfaEnabled: boolean;
-  profile: { firstName: string; lastName: string; bio: string; avatarUrl: string | null };
+  profile: {
+    firstName: string;
+    lastName: string;
+    bio: string;
+    avatarUrl: string | null;
+  };
   enrolledCourses?: any[];
 }
 
@@ -44,7 +53,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const loadUser = useCallback(async () => {
     const token = Cookies.get("access_token");
-    if (!token) { setLoading(false); return; }
+    if (!token) {
+      // Even logged-out visitors need a CSRF cookie established before their
+      // first state-changing request (login/register are exempt server-side,
+      // but this call also "warms" the cookie for anything else that fires
+      // early, e.g. a contact form). A lightweight unauthenticated GET does
+      // this safely.
+      try {
+        await api.get("/health").catch(() => undefined);
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
     try {
       const { data } = await api.get("/auth/me");
       // Always pull fresh mfaEnabled from /me — never trust cookie-cached value
@@ -60,7 +81,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
-  useEffect(() => { loadUser(); }, [loadUser]);
+  useEffect(() => {
+    loadUser();
+  }, [loadUser]);
 
   const login = async (
     email: string,
@@ -69,10 +92,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     mfaToken?: string,
   ) => {
     const { data } = await api.post("/auth/login", {
-      email, password, captchaToken, mfaToken,
+      email,
+      password,
+      captchaToken,
+      mfaToken,
     });
 
-    if (data.mfaRequired) return { mfaRequired: true, tempToken: data.tempToken };
+    if (data.mfaRequired) {
+      return { mfaRequired: true, tempToken: data.tempToken };
+    }
 
     // Store access token
     Cookies.set("access_token", data.accessToken, {
@@ -88,13 +116,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
     setUser(freshUser);
 
-    // Role-based redirect
     router.push(freshUser.role === "admin" ? "/admin" : "/dashboard");
     return {};
   };
 
   const logout = async () => {
-    try { await api.post("/auth/logout"); } catch { /* ignore */ }
+    try {
+      await api.post("/auth/logout");
+    } catch {
+      /* ignore network errors on logout — still clear local state */
+    }
     Cookies.remove("access_token");
     setUser(null);
     router.push("/login");
@@ -105,15 +136,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, [loadUser]);
 
   return (
-    <AuthContext.Provider value={{
-      user,
-      loading,
-      login,
-      logout,
-      refreshUser,
-      isAdmin: user?.role === "admin",
-      isAuthenticated: !!user,
-    }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        loading,
+        login,
+        logout,
+        refreshUser,
+        isAdmin: user?.role === "admin",
+        isAuthenticated: !!user,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

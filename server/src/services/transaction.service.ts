@@ -9,7 +9,7 @@ import mongoose from "mongoose";
 
 // Initialize Stripe
 const stripe = new Stripe(config.stripe.secretKey, {
-  apiVersion: "2023-10-16", // Latest supported version
+  apiVersion: "2023-10-16",
 });
 
 const HMAC_KEY = Buffer.from(config.encryption.key);
@@ -57,11 +57,11 @@ export const createStripePaymentIntent = async (
   });
   if (existing) throw new Error("ALREADY_ENROLLED");
 
-  const amountCents = course.priceCents; // stored in cents
+  const amountCents = course.priceCents;
   const timestamp = new Date().toISOString();
   const signature = signTransaction(userId, courseId, amountCents, timestamp);
 
-  // Free course — enroll directly without Stripe
+  // Free course
   if (amountCents === 0) {
     const freeIntentId = `free_${Date.now()}_${userId.slice(-6)}`;
     const session = await mongoose.startSession();
@@ -105,7 +105,6 @@ export const createStripePaymentIntent = async (
     };
   }
 
-  // Paid course — create Stripe PaymentIntent
   const paymentIntent = await stripe.paymentIntents.create({
     amount: amountCents,
     currency: "usd",
@@ -114,7 +113,7 @@ export const createStripePaymentIntent = async (
       courseId,
       amountCents: amountCents.toString(),
       timestamp,
-      signature, // HMAC stored in Stripe metadata for webhook verification
+      signature,
     },
     automatic_payment_methods: {
       enabled: true,
@@ -122,7 +121,6 @@ export const createStripePaymentIntent = async (
     },
   });
 
-  // Store transaction in pending state
   await Transaction.create({
     user: userId,
     course: courseId,
@@ -167,7 +165,7 @@ export const createStripeCheckoutSession = async (
   const timestamp = new Date().toISOString();
   const signature = signTransaction(userId, courseId, amountCents, timestamp);
 
-  // Free course — enroll directly without Stripe
+  // Free course
   if (amountCents === 0) {
     const freeIntentId = `free_${Date.now()}_${userId.slice(-6)}`;
     const session = await mongoose.startSession();
@@ -210,7 +208,6 @@ export const createStripeCheckoutSession = async (
     };
   }
 
-  // Create Stripe Checkout Session
   const checkoutSession = await stripe.checkout.sessions.create({
     payment_method_types: ["card"],
     line_items: [
@@ -239,14 +236,13 @@ export const createStripeCheckoutSession = async (
     },
   });
 
-  // Store transaction in pending state
   await Transaction.create({
     user: userId,
     course: courseId,
     amountCents,
     currency: "USD",
     status: "pending",
-    stripePaymentIntentId: checkoutSession.id, // Use session.id as reference
+    stripePaymentIntentId: checkoutSession.id,
     signature,
     metadata: { timestamp, checkoutSessionId: checkoutSession.id },
   });
@@ -268,26 +264,24 @@ export const handleStripeWebhook = async (
   let event: Stripe.Event;
 
   try {
-    // Verify Stripe webhook signature
     const webhookSecret = config.stripe.webhookSecret;
     if (!webhookSecret) {
       throw new Error("STRIPE_WEBHOOK_SECRET not configured");
     }
 
     event = stripe.webhooks.constructEvent(rawBody, signature, webhookSecret);
+    logger.info(`Webhook received: ${event.type}`, { eventId: event.id });
   } catch (err) {
     logger.error("Stripe webhook signature verification failed", { err });
     throw new Error("WEBHOOK_SIGNATURE_INVALID");
   }
 
-  // Handle checkout.session.completed events
   if (event.type === "checkout.session.completed") {
     const session = event.data.object as Stripe.Checkout.Session;
     await handleCheckoutSessionCompleted(session);
     return;
   }
 
-  // Handle payment_intent.succeeded events
   if (event.type === "payment_intent.succeeded") {
     const paymentIntent = event.data.object as Stripe.PaymentIntent;
     await handlePaymentIntentSucceeded(paymentIntent);
@@ -301,7 +295,6 @@ export const handleStripeWebhook = async (
 const handleCheckoutSessionCompleted = async (
   session: Stripe.Checkout.Session,
 ) => {
-  // Type assertion to tell TypeScript what properties exist on metadata
   const metadata = session.metadata as {
     userId: string;
     courseId: string;
@@ -326,7 +319,7 @@ const handleCheckoutSessionCompleted = async (
   } = metadata;
 
   if (!userId || !courseId || !amountCents || !timestamp || !hmacSignature) {
-    logger.error("Missing metadata in Stripe Checkout Session", {
+    logger.error("Missing metadata", {
       sessionId: session.id,
       metadata: session.metadata,
     });
@@ -342,30 +335,30 @@ const handleCheckoutSessionCompleted = async (
   );
 
   if (!isValid) {
-    logger.error("HMAC signature mismatch for Stripe Checkout Session", {
-      sessionId: session.id,
-      userId,
-      courseId,
-    });
+    logger.error("HMAC signature mismatch", { sessionId: session.id });
     throw new Error("HMAC_VERIFICATION_FAILED");
   }
 
-  // Find and validate transaction
-  const txn = await Transaction.findOne({
+  // Find transaction
+  let txn = await Transaction.findOne({
     stripePaymentIntentId: session.id,
     status: "pending",
   });
 
-  if (!txn) {
-    logger.warn("Transaction not found for checkout session", {
-      sessionId: session.id,
+  if (!txn && session.payment_intent) {
+    txn = await Transaction.findOne({
+      stripePaymentIntentId: session.payment_intent as string,
+      status: "pending",
     });
+  }
+
+  if (!txn) {
+    logger.warn("Transaction not found", { sessionId: session.id });
     throw new Error("TRANSACTION_NOT_FOUND");
   }
 
-  // Verify amount matches
   if (txn.amountCents !== parseInt(amountCents, 10)) {
-    logger.error("Amount mismatch in Stripe Checkout", {
+    logger.error("Amount mismatch", {
       expected: txn.amountCents,
       received: amountCents,
     });
@@ -375,32 +368,39 @@ const handleCheckoutSessionCompleted = async (
 
   // Atomic enrolment
   const mongoSession = await mongoose.startSession();
-  await mongoSession.withTransaction(async () => {
-    await Transaction.findByIdAndUpdate(
-      txn._id,
-      {
-        status: "completed",
-        stripeChargeId: session.payment_intent as string,
-        $set: { "metadata.webhookReceivedAt": new Date().toISOString() },
-      },
-      { session: mongoSession },
-    );
+  try {
+    await mongoSession.withTransaction(async () => {
+      await Transaction.findByIdAndUpdate(
+        txn._id,
+        {
+          status: "completed",
+          stripeChargeId: session.payment_intent as string,
+          $set: { "metadata.webhookReceivedAt": new Date().toISOString() },
+        },
+        { session: mongoSession },
+      );
 
-    await User.findByIdAndUpdate(
-      userId,
-      { $addToSet: { enrolledCourses: txn.course } },
-      { session: mongoSession },
-    );
+      await User.findByIdAndUpdate(
+        userId,
+        { $addToSet: { enrolledCourses: txn.course } },
+        { session: mongoSession },
+      );
 
-    await Course.findByIdAndUpdate(
-      txn.course,
-      { $inc: { enrolledCount: 1 } },
-      { session: mongoSession },
-    );
-  });
-  mongoSession.endSession();
-
-  const course = await Course.findById(txn.course).select("title");
+      await Course.findByIdAndUpdate(
+        txn.course,
+        { $inc: { enrolledCount: 1 } },
+        { session: mongoSession },
+      );
+    });
+  } catch (error) {
+    logger.error("Transaction enrolment failed", {
+      error,
+      transactionId: txn._id,
+    });
+    throw error;
+  } finally {
+    mongoSession.endSession();
+  }
 
   logSecurityEvent("payment_completed", userId, "webhook", {
     courseId: txn.course.toString(),
@@ -409,11 +409,11 @@ const handleCheckoutSessionCompleted = async (
     chargeId: session.payment_intent,
   });
 
-  logger.info("Payment completed via Stripe Checkout", {
+  logger.info("✅ Payment completed via Stripe Checkout", {
     sessionId: session.id,
     userId,
     courseId,
-    amountCents: txn.amountCents,
+    transactionId: txn._id,
   });
 };
 
@@ -421,7 +421,6 @@ const handleCheckoutSessionCompleted = async (
 const handlePaymentIntentSucceeded = async (
   paymentIntent: Stripe.PaymentIntent,
 ) => {
-  // Type assertion for PaymentIntent metadata
   const metadata = paymentIntent.metadata as {
     userId: string;
     courseId: string;
@@ -445,12 +444,8 @@ const handlePaymentIntentSucceeded = async (
     signature: hmacSignature,
   } = metadata;
 
-  // ── Re-verify HMAC integrity (prevents tampering) ──────────────────────
   if (!userId || !courseId || !amountCents || !timestamp || !hmacSignature) {
-    logger.error("Missing metadata in Stripe PaymentIntent", {
-      paymentIntentId: paymentIntent.id,
-      metadata: paymentIntent.metadata,
-    });
+    logger.error("Missing metadata", { paymentIntentId: paymentIntent.id });
     throw new Error("MISSING_METADATA");
   }
 
@@ -463,30 +458,24 @@ const handlePaymentIntentSucceeded = async (
   );
 
   if (!isValid) {
-    logger.error("HMAC signature mismatch for Stripe webhook", {
+    logger.error("HMAC signature mismatch", {
       paymentIntentId: paymentIntent.id,
-      userId,
-      courseId,
     });
     throw new Error("HMAC_VERIFICATION_FAILED");
   }
 
-  // ── Find and validate transaction ──────────────────────────────────────
   const txn = await Transaction.findOne({
     stripePaymentIntentId: paymentIntent.id,
     status: "pending",
   });
 
   if (!txn) {
-    logger.warn("Transaction not found or already processed", {
-      paymentIntentId: paymentIntent.id,
-    });
+    logger.warn("Transaction not found", { paymentIntentId: paymentIntent.id });
     throw new Error("TRANSACTION_NOT_FOUND");
   }
 
-  // Verify amount matches
   if (txn.amountCents !== parseInt(amountCents, 10)) {
-    logger.error("Amount mismatch in Stripe webhook", {
+    logger.error("Amount mismatch", {
       expected: txn.amountCents,
       received: amountCents,
     });
@@ -494,34 +483,40 @@ const handlePaymentIntentSucceeded = async (
     throw new Error("AMOUNT_MISMATCH");
   }
 
-  // ── Atomic enrolment ────────────────────────────────────────────────────
   const session = await mongoose.startSession();
-  await session.withTransaction(async () => {
-    await Transaction.findByIdAndUpdate(
-      txn._id,
-      {
-        status: "completed",
-        stripeChargeId: paymentIntent.latest_charge,
-        $set: { "metadata.webhookReceivedAt": new Date().toISOString() },
-      },
-      { session },
-    );
+  try {
+    await session.withTransaction(async () => {
+      await Transaction.findByIdAndUpdate(
+        txn._id,
+        {
+          status: "completed",
+          stripeChargeId: paymentIntent.latest_charge,
+          $set: { "metadata.webhookReceivedAt": new Date().toISOString() },
+        },
+        { session },
+      );
 
-    await User.findByIdAndUpdate(
-      userId,
-      { $addToSet: { enrolledCourses: txn.course } },
-      { session },
-    );
+      await User.findByIdAndUpdate(
+        userId,
+        { $addToSet: { enrolledCourses: txn.course } },
+        { session },
+      );
 
-    await Course.findByIdAndUpdate(
-      txn.course,
-      { $inc: { enrolledCount: 1 } },
-      { session },
-    );
-  });
-  session.endSession();
-
-  const course = await Course.findById(txn.course).select("title");
+      await Course.findByIdAndUpdate(
+        txn.course,
+        { $inc: { enrolledCount: 1 } },
+        { session },
+      );
+    });
+  } catch (error) {
+    logger.error("Transaction enrolment failed", {
+      error,
+      transactionId: txn._id,
+    });
+    throw error;
+  } finally {
+    session.endSession();
+  }
 
   logSecurityEvent("payment_completed", userId, "webhook", {
     courseId: txn.course.toString(),
@@ -530,11 +525,11 @@ const handlePaymentIntentSucceeded = async (
     chargeId: paymentIntent.latest_charge,
   });
 
-  logger.info("Payment completed via Stripe PaymentIntent", {
+  logger.info("✅ Payment completed via Stripe PaymentIntent", {
     paymentIntentId: paymentIntent.id,
     userId,
     courseId,
-    amountCents: txn.amountCents,
+    transactionId: txn._id,
   });
 };
 
