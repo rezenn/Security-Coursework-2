@@ -179,10 +179,12 @@ adminRouter.post(
   "/courses/:id/thumbnail",
   [param("id").isMongoId()],
   validateRequest,
-  (req, res, next) => {
-    uploadCourseThumbnail(req, res, (err) => {
+  (req: Request, res: Response, next: NextFunction) => {
+    uploadCourseThumbnail(req, res, (err: unknown) => {
       if (err) {
-        res.status(400).json({ error: err.message || "Upload failed" });
+        res
+          .status(400)
+          .json({ error: (err as Error).message || "Upload failed" });
         return;
       }
       next();

@@ -53,6 +53,15 @@ export const profileApi = {
       .post(API.PROFILE.CHANGE_PASSWORD, { currentPassword, newPassword })
       .then((r) => r.data),
   export: () => api.get(API.PROFILE.EXPORT, { responseType: "blob" }),
+  uploadAvatar: (file: File) => {
+    const form = new FormData();
+    form.append("avatar", file);
+    return api
+      .post(API.PROFILE.AVATAR, form, {
+        headers: { "Content-Type": "multipart/form-data" },
+      })
+      .then((r) => r.data);
+  },
 };
 
 export const paymentApi = {
@@ -92,6 +101,15 @@ export const adminApi = {
     api.delete(API.ADMIN.DELETE_COURSE(id)).then((r) => r.data),
   addLesson: (id: string, data: Record<string, unknown>) =>
     api.post(API.ADMIN.ADD_LESSON(id), data).then((r) => r.data),
+  uploadCourseThumbnail: (id: string, file: File) => {
+    const form = new FormData();
+    form.append("thumbnail", file);
+    return api
+      .post(API.ADMIN.UPLOAD_THUMBNAIL(id), form, {
+        headers: { "Content-Type": "multipart/form-data" },
+      })
+      .then((r) => r.data);
+  },
   updateLesson: (id: string, lessonId: string, data: Record<string, unknown>) =>
     api.patch(API.ADMIN.UPDATE_LESSON(id, lessonId), data).then((r) => r.data),
   deleteLesson: (id: string, lessonId: string) =>

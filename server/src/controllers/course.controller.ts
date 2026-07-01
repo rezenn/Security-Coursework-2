@@ -2,6 +2,10 @@ import { Request, Response } from "express";
 import Course from "../models/course.model";
 import User from "../models/user.model";
 import { logSecurityEvent } from "../utils/logger.utils";
+import {
+  courseThumbnailUrl,
+  deleteUploadedFile,
+} from "../middleware/upload.middleware";
 
 const ip = (req: Request) => req.ip || "unknown";
 
@@ -66,7 +70,6 @@ export const getCourse = async (req: Request, res: Response): Promise<void> => {
       ) ?? false;
   }
 
-  // ILesson now extends Document so .toObject() is valid
   // Non-enrolled users only see free preview lessons (video URL stripped)
   const lessons = isEnrolled
     ? course.lessons.map((l) => l.toObject())
@@ -122,7 +125,12 @@ export const createCourse = async (
     category,
     level: level || "beginner",
     priceCents: parseInt(String(priceCents), 10) || 0,
-    currency: "NPR", // GyanKosh settles in NPR only; ignore any client-supplied value
+    // GyanKosh is NPR-only (see course.model.ts enum). The old default of
+    // "USD" here was never a valid enum value, which is why saving a course
+    // (or re-validating it when a lesson was added) crashed with a
+    // Mongoose ValidationError. Always default to NPR; never trust a
+    // client-supplied currency on an NPR-only platform.
+    currency: "NPR",
     tags: Array.isArray(tags) ? tags : [],
     createdBy: req.user.sub,
   });
@@ -145,7 +153,8 @@ export const updateCourse = async (
     return;
   }
 
-  // Whitelist to prevent mass-assignment attacks
+  // Whitelist to prevent mass-assignment attacks. currency is intentionally
+  // excluded — GyanKosh only ever settles in NPR (see course.model.ts).
   const ALLOWED_FIELDS = [
     "title",
     "description",
@@ -203,12 +212,47 @@ export const deleteCourse = async (
     return;
   }
 
+  if (course.thumbnail) deleteUploadedFile(course.thumbnail);
+
   logSecurityEvent("course_deleted", req.user.sub, ip(req), {
     courseId: req.params.id,
     title: course.title,
   });
 
   res.status(200).json({ message: "Course deleted" });
+};
+
+// ── POST /api/admin/courses/:id/thumbnail ────────────────────────────────────
+export const uploadThumbnail = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  if (!req.user) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+  if (!req.file) {
+    res.status(400).json({ error: "No image file uploaded" });
+    return;
+  }
+
+  const course = await Course.findById(req.params.id);
+  if (!course) {
+    res.status(404).json({ error: "Course not found" });
+    return;
+  }
+
+  const oldThumbnail = course.thumbnail;
+  course.thumbnail = courseThumbnailUrl(req.file.filename);
+  await course.save();
+
+  if (oldThumbnail) deleteUploadedFile(oldThumbnail);
+
+  logSecurityEvent("course_thumbnail_updated", req.user.sub, ip(req), {
+    courseId: req.params.id,
+  });
+
+  res.status(200).json({ message: "Thumbnail updated", course });
 };
 
 // ── POST /api/admin/courses/:id/lessons ──────────────────────────────────────
@@ -274,26 +318,14 @@ export const updateLesson = async (
     return;
   }
 
-  const ALLOWED_FIELDS = [
-    "title",
-    "description",
-    "videoUrl",
-    "duration",
-    "order",
-    "isFree",
-  ] as const;
-
-  ALLOWED_FIELDS.forEach((k) => {
-    if (req.body[k] !== undefined) {
-      if (k === "duration" || k === "order") {
-        (lesson as any)[k] = parseInt(String(req.body[k]), 10) || 0;
-      } else if (k === "isFree") {
-        lesson.isFree = Boolean(req.body[k]);
-      } else {
-        (lesson as any)[k] = String(req.body[k]).trim();
-      }
-    }
-  });
+  const { title, description, videoUrl, duration, isFree } = req.body;
+  if (title !== undefined) lesson.title = String(title).trim();
+  if (description !== undefined)
+    lesson.description = String(description).trim();
+  if (videoUrl !== undefined) lesson.videoUrl = String(videoUrl).trim();
+  if (duration !== undefined)
+    lesson.duration = parseInt(String(duration), 10) || 0;
+  if (isFree !== undefined) lesson.isFree = Boolean(isFree);
 
   await course.save();
 
@@ -329,11 +361,11 @@ export const deleteLesson = async (
 
   lesson.deleteOne();
 
-  // Re-sequence remaining lessons' `order` so there are no gaps
+  // Re-number remaining lessons so `order` stays contiguous
   course.lessons
     .sort((a, b) => a.order - b.order)
-    .forEach((l, idx) => {
-      l.order = idx + 1;
+    .forEach((l, i) => {
+      l.order = i + 1;
     });
 
   await course.save();
@@ -356,7 +388,7 @@ export const reorderLessons = async (
     return;
   }
 
-  const { lessonIds } = req.body as { lessonIds: string[] };
+  const { lessonIds } = req.body;
   if (!Array.isArray(lessonIds) || lessonIds.length === 0) {
     res.status(400).json({ error: "lessonIds array is required" });
     return;
@@ -368,13 +400,25 @@ export const reorderLessons = async (
     return;
   }
 
-  // Only reorder lessons that actually belong to this course
-  const validIds = new Set(course.lessons.map((l) => l._id.toString()));
-  const filtered = lessonIds.filter((id) => validIds.has(id));
+  // Every id in the incoming order must belong to this course — otherwise
+  // reject rather than silently dropping/duplicating lessons.
+  const existingIds = new Set(course.lessons.map((l) => l._id.toString()));
+  const incomingIds = new Set(lessonIds);
+  const validRequest =
+    lessonIds.length === existingIds.size &&
+    lessonIds.every((id: string) => existingIds.has(id)) &&
+    incomingIds.size === lessonIds.length;
 
-  filtered.forEach((id, idx) => {
+  if (!validRequest) {
+    res.status(400).json({
+      error: "lessonIds must match the course's existing lessons exactly",
+    });
+    return;
+  }
+
+  lessonIds.forEach((id: string, index: number) => {
     const lesson = course.lessons.id(id);
-    if (lesson) lesson.order = idx + 1;
+    if (lesson) lesson.order = index + 1;
   });
 
   await course.save();
