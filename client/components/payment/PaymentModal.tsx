@@ -74,9 +74,20 @@ function PaymentForm({
   const stripe = useStripe();
   const elements = useElements();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isElementReady, setIsElementReady] = useState(false);
 
   const handleSubmit = useCallback(async () => {
-    if (!stripe || !elements) return;
+    if (!stripe || !elements || !isElementReady) return;
+
+    // Belt-and-suspenders: bail if the Payment Element somehow isn't mounted
+    const paymentElement = elements.getElement(PaymentElement);
+    if (!paymentElement) {
+      onError(
+        "Payment form is still loading. Please wait a moment and try again.",
+      );
+      return;
+    }
+
     setIsSubmitting(true);
     onProcessing(true);
 
@@ -96,7 +107,7 @@ function PaymentForm({
     onSuccess();
     setIsSubmitting(false);
     onProcessing(false);
-  }, [stripe, elements, onSuccess, onError, onProcessing]);
+  }, [stripe, elements, isElementReady, onSuccess, onError, onProcessing]);
 
   if (isFree) {
     // Free courses don't render the card form — handled before <Elements> mount
@@ -129,6 +140,7 @@ function PaymentForm({
       {/* Stripe Payment Element */}
       <div>
         <PaymentElement
+          onReady={() => setIsElementReady(true)}
           options={{
             layout: { type: "tabs", defaultCollapsed: false },
             fields: { billingDetails: { address: "never" } },
@@ -138,7 +150,7 @@ function PaymentForm({
 
       <button
         onClick={handleSubmit}
-        disabled={isSubmitting || !stripe || !elements}
+        disabled={isSubmitting || !stripe || !elements || !isElementReady}
         className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold py-3 px-4 rounded-xl transition-colors flex items-center justify-center gap-2 text-sm"
       >
         {isSubmitting ? (

@@ -92,5 +92,11 @@ export const adminApi = {
     api.delete(API.ADMIN.DELETE_COURSE(id)).then((r) => r.data),
   addLesson: (id: string, data: Record<string, unknown>) =>
     api.post(API.ADMIN.ADD_LESSON(id), data).then((r) => r.data),
+  updateLesson: (id: string, lessonId: string, data: Record<string, unknown>) =>
+    api.patch(API.ADMIN.UPDATE_LESSON(id, lessonId), data).then((r) => r.data),
+  deleteLesson: (id: string, lessonId: string) =>
+    api.delete(API.ADMIN.DELETE_LESSON(id, lessonId)).then((r) => r.data),
+  reorderLessons: (id: string, lessonIds: string[]) =>
+    api.patch(API.ADMIN.REORDER_LESSONS(id), { lessonIds }).then((r) => r.data),
   transactions: () => api.get(API.ADMIN.TRANSACTIONS).then((r) => r.data),
 };

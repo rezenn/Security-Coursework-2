@@ -37,6 +37,11 @@ export const API = {
     UPDATE_COURSE: (id: string) => `/admin/courses/${id}`,
     DELETE_COURSE: (id: string) => `/admin/courses/${id}`,
     ADD_LESSON: (id: string) => `/admin/courses/${id}/lessons`,
+    UPDATE_LESSON: (id: string, lessonId: string) =>
+      `/admin/courses/${id}/lessons/${lessonId}`,
+    DELETE_LESSON: (id: string, lessonId: string) =>
+      `/admin/courses/${id}/lessons/${lessonId}`,
+    REORDER_LESSONS: (id: string) => `/admin/courses/${id}/lessons/reorder`,
     TRANSACTIONS: "/admin/transactions",
   },
 };

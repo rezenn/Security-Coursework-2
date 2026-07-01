@@ -12,9 +12,11 @@ import {
   EyeOff,
   X,
   CheckCircle,
+  ListVideo,
 } from "lucide-react";
 import { toast } from "sonner";
 import clsx from "clsx";
+import { LessonManager } from "@/components/admin/LessonManager";
 
 const EMPTY_FORM = {
   title: "",
@@ -36,6 +38,7 @@ export default function AdminCoursesPage() {
   const [form, setForm] = useState({ ...EMPTY_FORM });
   const [saving, setSaving] = useState(false);
   const [publishingId, setPublishingId] = useState<string | null>(null);
+  const [lessonCourse, setLessonCourse] = useState<any | null>(null);
 
   const fetchCourses = async () => {
     setFetching(true);
@@ -414,6 +417,13 @@ export default function AdminCoursesPage() {
                         )}
                       </button>
                       <button
+                        onClick={() => setLessonCourse(c)}
+                        className="p-1.5 text-slate-400 hover:text-emerald-400 transition-colors rounded"
+                        title="Manage lessons"
+                      >
+                        <ListVideo size={14} />
+                      </button>
+                      <button
                         onClick={() => openEdit(c)}
                         className="p-1.5 text-slate-400 hover:text-blue-400 transition-colors rounded"
                         title="Edit course"
@@ -435,6 +445,22 @@ export default function AdminCoursesPage() {
           </tbody>
         </table>
       </div>
+
+      {/* Lesson manager modal */}
+      {lessonCourse && (
+        <LessonManager
+          course={lessonCourse}
+          onClose={() => setLessonCourse(null)}
+          onCourseUpdated={(updated) => {
+            setLessonCourse(updated);
+            setCourses((prev) =>
+              prev.map((c) =>
+                c._id === updated._id ? { ...c, ...updated } : c,
+              ),
+            );
+          }}
+        />
+      )}
 
       {/* Tip */}
       {courses.some((c) => !c.isPublished) && (
