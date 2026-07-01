@@ -80,6 +80,8 @@ export const paymentApi = {
           publishableKey: string;
         },
     ),
+  completeCheckout: (sessionId: string) =>
+    api.post(API.PAYMENTS.COMPLETE_CHECKOUT, { sessionId }).then((r) => r.data),
   myTransactions: () =>
     api.get(API.PAYMENTS.MY_TRANSACTIONS).then((r) => r.data),
 };

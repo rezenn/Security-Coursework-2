@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import {
   createStripeCheckoutSession,
   handleStripeWebhook,
+  completeCheckoutSession,
   getUserTransactions,
   getAllTransactions,
 } from "../services/transaction.service";
@@ -91,6 +92,47 @@ export const stripeWebhook = async (
     ];
 
     logSecurityEvent("webhook_failed", null, ip(req), { error: err.message });
+    res.status(status).json({ error: message });
+  }
+};
+
+// POST /api/payments/complete-checkout
+export const completeCheckout = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  if (!req.user) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+
+  const { sessionId } = req.body;
+  if (!sessionId || typeof sessionId !== "string") {
+    res.status(400).json({ error: "sessionId is required" });
+    return;
+  }
+
+  try {
+    const result = await completeCheckoutSession(req.user.sub, sessionId);
+    res
+      .status(200)
+      .json({ message: "Checkout completed", courseId: result.courseId });
+  } catch (err: any) {
+    const msgMap: Record<string, [number, string]> = {
+      SESSION_NOT_PAID: [400, "Payment session is not complete."],
+      MISSING_METADATA: [400, "Missing payment metadata."],
+      HMAC_VERIFICATION_FAILED: [403, "Payment verification failed."],
+      TRANSACTION_NOT_FOUND: [404, "Transaction not found."],
+      USER_MISMATCH: [403, "Session user mismatch."],
+    };
+    const [status, message] = msgMap[err.message] || [
+      500,
+      "Checkout completion failed.",
+    ];
+    logSecurityEvent("checkout_complete_failed", req.user.sub, ip(req), {
+      error: err.message,
+      sessionId,
+    });
     res.status(status).json({ error: message });
   }
 };

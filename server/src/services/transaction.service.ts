@@ -161,6 +161,82 @@ export const createStripeCheckoutSession = async (
   };
 };
 
+// ── Finalize a Stripe Checkout Session when Stripe redirects back to the
+// frontend and the webhook may not yet have been delivered.
+export const completeCheckoutSession = async (
+  userId: string,
+  sessionId: string,
+): Promise<{ courseId: string }> => {
+  const session = await stripe.checkout.sessions.retrieve(sessionId, {
+    expand: ["payment_intent"],
+  });
+
+  if (!session || session.id !== sessionId) {
+    throw new Error("TRANSACTION_NOT_FOUND");
+  }
+
+  const metadata = session.metadata as {
+    userId: string;
+    courseId: string;
+    amountCents: string;
+    timestamp: string;
+    signature: string;
+  } | null;
+
+  if (!metadata) {
+    logger.error("No metadata in Stripe Checkout Session", {
+      sessionId: session.id,
+    });
+    throw new Error("MISSING_METADATA");
+  }
+
+  const {
+    userId: metadataUser,
+    courseId,
+    amountCents,
+    timestamp,
+    signature,
+  } = metadata;
+
+  if (!metadataUser || !courseId || !amountCents || !timestamp || !signature) {
+    logger.error("Missing metadata", {
+      sessionId: session.id,
+      metadata: session.metadata,
+    });
+    throw new Error("MISSING_METADATA");
+  }
+
+  if (metadataUser !== userId) {
+    logger.warn("Checkout session user mismatch", {
+      sessionId: session.id,
+      expectedUserId: userId,
+      metadataUser,
+    });
+    throw new Error("USER_MISMATCH");
+  }
+
+  if (session.status !== "complete" && session.payment_status !== "paid") {
+    logger.warn("Checkout session not paid", {
+      sessionId: session.id,
+      status: session.status,
+      paymentStatus: session.payment_status,
+    });
+    throw new Error("SESSION_NOT_PAID");
+  }
+
+  const existingCompleted = await Transaction.findOne({
+    user: userId,
+    course: courseId,
+    status: "completed",
+  });
+  if (existingCompleted) {
+    return { courseId };
+  }
+
+  await handleCheckoutSessionCompleted(session);
+  return { courseId };
+};
+
 // ── Create Stripe PaymentIntent (for direct card payments) ──────────────────
 export const createStripePaymentIntent = async (
   userId: string,

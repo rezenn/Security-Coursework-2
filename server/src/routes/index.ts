@@ -22,6 +22,7 @@ import {
 } from "../controllers/profile.controller";
 import {
   adminListTransactions,
+  completeCheckout,
   createCheckoutSession,
   myTransactions,
   stripeWebhook,
@@ -100,6 +101,13 @@ paymentRouter.post(
   [body("courseId").isMongoId().withMessage("Valid courseId required")],
   validateRequest,
   createCheckoutSession,
+);
+paymentRouter.post(
+  "/complete-checkout",
+  requireAuth,
+  [body("sessionId").notEmpty().withMessage("sessionId is required")],
+  validateRequest,
+  completeCheckout,
 );
 
 // Raw body for Stripe signature verification is parsed in server.ts

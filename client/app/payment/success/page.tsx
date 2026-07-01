@@ -1,25 +1,43 @@
 "use client";
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { CheckCircle, Loader2, BookOpen } from "lucide-react";
 import { useAuth } from "@/context/authContext";
+import { paymentApi } from "@/lib/api";
 import Link from "next/link";
 
 // This page is a fallback landing for any redirect-based payment completion.
 // The primary Payment Element flow completes in-modal without navigating here.
 export default function PaymentSuccessPage() {
   const router = useRouter();
-  const { refreshUser, user } = useAuth();
+  const searchParams = useSearchParams();
+  const sessionId = searchParams.get("session_id");
+  const { refreshUser } = useAuth();
   const [status, setStatus] = useState<"loading" | "success">("loading");
+  const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    // Refresh user to pick up any newly enrolled courses from the webhook
-    refreshUser()
-      .catch(() => {
-        /* ignore — user may not be logged in */
-      })
-      .finally(() => setStatus("success"));
-  }, [refreshUser]);
+    const completeCheckout = async () => {
+      if (sessionId) {
+        try {
+          await paymentApi.completeCheckout(sessionId);
+          setMessage("Your course access was finalized successfully.");
+        } catch {
+          setMessage(
+            "Payment succeeded, but enrollment could not be finalized automatically. Please refresh the page or contact support.",
+          );
+        }
+      }
+
+      refreshUser()
+        .catch(() => {
+          /* ignore */
+        })
+        .finally(() => setStatus("success"));
+    };
+
+    completeCheckout();
+  }, [refreshUser, sessionId]);
 
   return (
     <div className="min-h-screen bg-slate-900 flex items-center justify-center p-6">
@@ -43,9 +61,7 @@ export default function PaymentSuccessPage() {
               Payment successful! 🎉
             </h2>
             <p className="text-slate-400 text-sm mb-8">
-              {user
-                ? `Welcome back, ${user.username}! Your course access is now active.`
-                : "Your payment was processed successfully."}
+              {message ?? "Your payment was processed successfully."}
             </p>
             <div className="flex flex-col gap-3">
               <Link

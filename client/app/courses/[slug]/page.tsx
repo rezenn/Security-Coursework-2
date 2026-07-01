@@ -98,6 +98,19 @@ export default function CourseDetailPage() {
   const totalHours = Math.floor(totalDuration / 60);
   const totalMins = totalDuration % 60;
 
+  const getYoutubeEmbedUrl = (url: string): string | null => {
+    if (!url) return null;
+    const match = url.match(
+      /(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/,
+    );
+    return match?.[1]
+      ? `https://www.youtube.com/embed/${match[1]}?rel=0&modestbranding=1`
+      : null;
+  };
+
+  const activeLessonEmbedUrl =
+    activeLesson?.videoUrl && getYoutubeEmbedUrl(activeLesson.videoUrl);
+
   return (
     <div className="flex h-screen overflow-hidden bg-slate-900">
       <AppSidebar />
@@ -296,6 +309,42 @@ export default function CourseDetailPage() {
                   </p>
                 )}
               </div>
+
+              {/* Video player */}
+              {activeLesson.videoUrl ? (
+                <div className="mb-6">
+                  <div className="w-full aspect-video bg-slate-900 rounded-2xl overflow-hidden border border-slate-700">
+                    {activeLessonEmbedUrl ? (
+                      <iframe
+                        src={activeLessonEmbedUrl}
+                        title={`Video for ${activeLesson.title}`}
+                        frameBorder="0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                        allowFullScreen
+                        className="w-full h-full"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 p-6 text-center">
+                        <p className="font-semibold text-white mb-2">
+                          Video available
+                        </p>
+                        <p className="text-sm text-slate-400 mb-4">
+                          This lesson includes a video, but the URL is not a
+                          supported YouTube link.
+                        </p>
+                        <a
+                          href={activeLesson.videoUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-blue-400 hover:text-blue-300"
+                        >
+                          Open the lesson video in a new tab
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : null}
 
               {/* Description / article body */}
               <div className="prose prose-invert prose-sm max-w-none">
