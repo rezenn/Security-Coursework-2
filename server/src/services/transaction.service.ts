@@ -37,6 +37,130 @@ export const verifyTransactionSignature = (
   return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected));
 };
 
+// ── Create a Stripe-hosted checkout session for paid courses ──────────────
+export const createStripeCheckoutSession = async (
+  userId: string,
+  courseId: string,
+  userIp: string,
+): Promise<{
+  checkoutUrl: string;
+  clientSecret: string;
+  paymentIntentId: string;
+  amountCents: number;
+  currency: string;
+}> => {
+  const course = await Course.findById(courseId);
+  if (!course || !course.isPublished) throw new Error("COURSE_NOT_FOUND");
+
+  const existing = await Transaction.findOne({
+    user: userId,
+    course: courseId,
+    status: "completed",
+  });
+  if (existing) throw new Error("ALREADY_ENROLLED");
+
+  const amountCents = course.priceCents;
+  const timestamp = new Date().toISOString();
+  const signature = signTransaction(userId, courseId, amountCents, timestamp);
+
+  if (amountCents === 0) {
+    const freeIntentId = `free_${Date.now()}_${userId.slice(-6)}`;
+    const session = await mongoose.startSession();
+    await session.withTransaction(async () => {
+      await Transaction.create(
+        [
+          {
+            user: userId,
+            course: courseId,
+            amountCents: 0,
+            currency: "NPR",
+            status: "completed",
+            stripePaymentIntentId: freeIntentId,
+            signature,
+            metadata: { timestamp, free: true },
+          },
+        ],
+        { session },
+      );
+      await User.findByIdAndUpdate(
+        userId,
+        { $addToSet: { enrolledCourses: courseId } },
+        { session },
+      );
+      await Course.findByIdAndUpdate(
+        courseId,
+        { $inc: { enrolledCount: 1 } },
+        { session },
+      );
+    });
+    session.endSession();
+    logSecurityEvent("payment_completed", userId, userIp, {
+      courseId,
+      amountCents: 0,
+      free: true,
+    });
+    return {
+      checkoutUrl: `${config.frontendUrl}/payment/success`,
+      clientSecret: "free",
+      paymentIntentId: freeIntentId,
+      amountCents: 0,
+      currency: "npr",
+    };
+  }
+
+  const checkoutSession = await stripe.checkout.sessions.create({
+    mode: "payment",
+    payment_method_types: ["card"],
+    line_items: [
+      {
+        quantity: 1,
+        price_data: {
+          currency: "npr",
+          unit_amount: amountCents,
+          product_data: {
+            name: course.title,
+            description: course.description.slice(0, 140),
+          },
+        },
+      },
+    ],
+    metadata: {
+      userId,
+      courseId,
+      amountCents: amountCents.toString(),
+      timestamp,
+      signature,
+    },
+    success_url: `${config.frontendUrl}/payment/success?session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${config.frontendUrl}/courses/${course.slug}`,
+  });
+
+  await Transaction.create({
+    user: userId,
+    course: courseId,
+    amountCents,
+    currency: "NPR",
+    status: "pending",
+    stripePaymentIntentId: checkoutSession.id,
+    signature,
+    metadata: { timestamp, checkoutSessionId: checkoutSession.id },
+  });
+
+  logSecurityEvent("checkout_session_created", userId, userIp, {
+    courseId,
+    amountCents,
+    checkoutSessionId: checkoutSession.id,
+  });
+
+  return {
+    checkoutUrl: checkoutSession.url || "",
+    clientSecret: checkoutSession.client_secret || "",
+    paymentIntentId: checkoutSession.id,
+    amountCents,
+    currency: "npr",
+  };
+};
+
 // ── Create Stripe PaymentIntent (for direct card payments) ──────────────────
 export const createStripePaymentIntent = async (
   userId: string,

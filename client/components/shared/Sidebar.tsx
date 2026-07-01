@@ -3,6 +3,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/context/authContext";
 import { Avatar, RoleBadge } from "@/components/shared";
+import { LogoutModal } from "@/components/auth/LogoutModal";
 import {
   BookOpen,
   LayoutDashboard,
@@ -17,6 +18,7 @@ import {
   BookMarked,
 } from "lucide-react";
 import clsx from "clsx";
+import { useState } from "react";
 
 const userNav = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -75,7 +77,8 @@ function NavItem({
 }
 
 export function AppSidebar() {
-  const { user, logout, isAdmin } = useAuth();
+  const { user, isAdmin } = useAuth();
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
   const enrolledCount: number = (user?.enrolledCourses ?? []).length;
   const navItems = isAdmin ? adminNav : userNav;
 
@@ -132,12 +135,21 @@ export function AppSidebar() {
             </div>
           </div>
           <button
-            onClick={logout}
+            onClick={() => setShowLogoutModal(true)}
             className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs text-slate-400 hover:text-red-400 hover:bg-red-500/8 transition-colors"
           >
             <LogOut size={13} />
             Sign out
           </button>
+        </div>
+      )}
+
+      {user && (
+        <div>
+          <LogoutModal
+            isOpen={showLogoutModal}
+            onClose={() => setShowLogoutModal(false)}
+          />
         </div>
       )}
     </aside>

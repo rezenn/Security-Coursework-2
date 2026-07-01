@@ -1,6 +1,7 @@
 /// <reference path="./types/express/index.d.ts" />
 
 import express, { Request, Response, NextFunction } from "express";
+import path from "path";
 import helmet from "helmet";
 import cors from "cors";
 import hpp from "hpp";
@@ -86,6 +87,9 @@ app.use(
   "/api/payments/webhook",
   express.raw({ type: "application/json", limit: "1mb" }),
 );
+
+// ── Static uploaded assets ──────────────────────────────────────────────────
+app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
 // ── Body parsers (everything except the webhook route above) ──────────────────
 app.use(express.json({ limit: "15kb" }));

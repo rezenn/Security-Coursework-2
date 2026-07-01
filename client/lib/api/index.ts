@@ -72,6 +72,7 @@ export const paymentApi = {
     api.post(API.PAYMENTS.CREATE_CHECKOUT, { courseId }).then(
       (r) =>
         r.data as {
+          checkoutUrl?: string;
           clientSecret: string;
           paymentIntentId: string;
           amountCents: number;

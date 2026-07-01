@@ -4,13 +4,21 @@
  * Server redirects here with ?token=ACCESS_TOKEN&role=user|admin
  * Stores the token once, refreshes user context, redirects to dashboard.
  */
-import { useEffect } from "react";
+import { useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useAuth } from "@/context/authContext";
 import Cookies from "js-cookie";
 import { PageLoader } from "@/components/shared";
 
 export default function GoogleSuccessPage() {
+  return (
+    <Suspense fallback={<PageLoader />}>
+      <GoogleSuccessContent />
+    </Suspense>
+  );
+}
+
+function GoogleSuccessContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { refreshUser } = useAuth();

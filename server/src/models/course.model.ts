@@ -72,7 +72,7 @@ const courseSchema = new Schema<ICourse>(
     currency: {
       type: String,
       default: "NPR",
-      enum: ["NPR"], // GyanKosh only settles in NPR — see server/README for rationale
+      enum: ["NPR", "USD"],
       uppercase: true,
       maxlength: 3,
     },

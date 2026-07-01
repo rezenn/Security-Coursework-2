@@ -253,6 +253,12 @@ export function PaymentModal({
         return;
       }
 
+      if (data.checkoutUrl) {
+        setState("loading");
+        window.location.assign(data.checkoutUrl);
+        return;
+      }
+
       // Paid course — mount Stripe Payment Element
       const stripe = loadStripe(data.publishableKey);
       setStripePromise(stripe);

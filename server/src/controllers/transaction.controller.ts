@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import {
-  createStripePaymentIntent,
+  createStripeCheckoutSession,
   handleStripeWebhook,
   getUserTransactions,
   getAllTransactions,
@@ -29,7 +29,7 @@ export const createCheckoutSession = async (
   }
 
   try {
-    const result = await createStripePaymentIntent(
+    const result = await createStripeCheckoutSession(
       req.user.sub,
       courseId,
       ip(req),
@@ -37,6 +37,7 @@ export const createCheckoutSession = async (
     // Return the publishable key so the client can initialise loadStripe()
     // without baking it into the bundle at build time from an env var.
     res.status(200).json({
+      checkoutUrl: result.checkoutUrl,
       clientSecret: result.clientSecret,
       paymentIntentId: result.paymentIntentId,
       amountCents: result.amountCents,

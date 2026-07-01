@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -46,6 +46,14 @@ const GoogleIcon = () => (
 );
 
 export default function LoginPage() {
+  return (
+    <Suspense fallback={<PageLoader />}>
+      <LoginContent />
+    </Suspense>
+  );
+}
+
+function LoginContent() {
   const { login, isAuthenticated, user, loading: authLoading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();

@@ -38,6 +38,7 @@ export default function AdminCoursesPage() {
   const [saving, setSaving] = useState(false);
   const [publishingId, setPublishingId] = useState<string | null>(null);
   const [lessonCourse, setLessonCourse] = useState<any | null>(null);
+  const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
 
   const fetchCourses = async () => {
     setFetching(true);
@@ -58,6 +59,7 @@ export default function AdminCoursesPage() {
   const openCreate = () => {
     setEditId(null);
     setForm({ ...EMPTY_FORM });
+    setThumbnailFile(null);
     setShowForm(true);
   };
 
@@ -72,6 +74,7 @@ export default function AdminCoursesPage() {
       priceDisplay: String(c.priceCents / 100),
       tags: (c.tags || []).join(", "),
     });
+    setThumbnailFile(null);
     setShowForm(true);
   };
 
@@ -94,14 +97,23 @@ export default function AdminCoursesPage() {
           .filter(Boolean),
       };
 
+      let courseId = editId;
       if (editId) {
         await adminApi.updateCourse(editId, payload);
         toast.success("Course updated");
       } else {
-        await adminApi.createCourse(payload);
+        const created = await adminApi.createCourse(payload);
+        courseId = created?.course?._id || null;
         toast.success("Course created — publish it when ready");
       }
+
+      if (thumbnailFile && courseId) {
+        await adminApi.uploadCourseThumbnail(courseId, thumbnailFile);
+        toast.success("Course image uploaded");
+      }
+
       setShowForm(false);
+      setThumbnailFile(null);
       fetchCourses();
     } catch (err: any) {
       toast.error(err?.response?.data?.error || "Save failed");
@@ -280,6 +292,20 @@ export default function AdminCoursesPage() {
                   onChange={(e) => setForm({ ...form, tags: e.target.value })}
                   placeholder="python, web, security"
                 />
+              </div>
+              <div>
+                <label className="label">Course image</label>
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  className="block w-full text-sm text-slate-400 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-blue-600/20 file:text-blue-300 hover:file:bg-blue-600/30"
+                  onChange={(e) =>
+                    setThumbnailFile(e.target.files?.[0] || null)
+                  }
+                />
+                <p className="text-xs text-slate-500 mt-1">
+                  JPG, PNG, WEBP, or GIF up to 5MB.
+                </p>
               </div>
               <div className="flex gap-3 pt-2">
                 <button
