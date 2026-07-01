@@ -1,16 +1,18 @@
 import { Request, Response } from "express";
 import {
-  createStripeCheckoutSession,
+  createStripePaymentIntent,
   handleStripeWebhook,
   getUserTransactions,
   getAllTransactions,
 } from "../services/transaction.service";
 import { logSecurityEvent } from "../utils/logger.utils";
+import config from "../config/env.config";
 
 const ip = (req: Request) => req.ip || "unknown";
 
 // POST /api/payments/create-intent
-// Add this new function
+// Returns a PaymentIntent clientSecret for the Stripe Payment Element (embedded
+// in-page modal). This replaces the old Checkout Session redirect approach.
 export const createCheckoutSession = async (
   req: Request,
   res: Response,
@@ -21,18 +23,26 @@ export const createCheckoutSession = async (
   }
 
   const { courseId } = req.body;
-  if (!courseId) {
+  if (!courseId || typeof courseId !== "string") {
     res.status(400).json({ error: "courseId is required" });
     return;
   }
 
   try {
-    const result = await createStripeCheckoutSession(
+    const result = await createStripePaymentIntent(
       req.user.sub,
       courseId,
       ip(req),
     );
-    res.status(200).json(result);
+    // Return the publishable key so the client can initialise loadStripe()
+    // without baking it into the bundle at build time from an env var.
+    res.status(200).json({
+      clientSecret: result.clientSecret,
+      paymentIntentId: result.paymentIntentId,
+      amountCents: result.amountCents,
+      currency: result.currency,
+      publishableKey: config.stripe.publishableKey,
+    });
   } catch (err: any) {
     const msgMap: Record<string, [number, string]> = {
       ALREADY_ENROLLED: [409, "You are already enrolled in this course."],
@@ -40,7 +50,7 @@ export const createCheckoutSession = async (
     };
     const [status, message] = msgMap[err.message] || [
       500,
-      "Checkout creation failed.",
+      "Payment intent creation failed.",
     ];
     res.status(status).json({ error: message });
   }
@@ -59,13 +69,10 @@ export const stripeWebhook = async (
   }
 
   try {
-    // Get raw body from middleware
-    // @ts-ignore - rawBody attached by middleware
-    const rawBody = req.rawBody || req.body;
-
-    // If rawBody is a string, convert to Buffer
-    const bodyBuffer =
-      typeof rawBody === "string" ? Buffer.from(rawBody, "utf8") : rawBody;
+    // express.raw() (registered in server.ts, ahead of express.json()) sets
+    // req.body to the exact unparsed Buffer Stripe signed — required for
+    // constructEvent's HMAC check.
+    const bodyBuffer = req.body as Buffer;
 
     await handleStripeWebhook(bodyBuffer, signature);
     res.status(200).json({ received: true });

@@ -6,6 +6,7 @@ import { Spinner, EmptyState } from "@/components/shared";
 import { AppSidebar } from "@/components/shared/Sidebar";
 import { PaymentModal } from "@/components/payment/PaymentModal";
 import { BookOpen, Search, CheckCircle, ShoppingCart } from "lucide-react";
+import Link from "next/link";
 import { toast } from "sonner";
 import clsx from "clsx";
 
@@ -196,7 +197,7 @@ export default function CoursesPage() {
                           <p className="text-lg font-bold text-white">
                             {course.priceCents === 0
                               ? "Free"
-                              : `$${(course.priceCents / 100).toFixed(2)}`}
+                              : `NPR ${(course.priceCents / 100).toLocaleString("ne-NP", { minimumFractionDigits: 2 })}`}
                           </p>
                           {course.enrolledCount > 0 && (
                             <p className="text-xs text-slate-500">
@@ -206,9 +207,12 @@ export default function CoursesPage() {
                         </div>
 
                         {isEnrolled ? (
-                          <div className="flex items-center gap-1.5 text-sm text-emerald-400 font-medium">
-                            <CheckCircle size={15} /> Enrolled
-                          </div>
+                          <Link
+                            href={`/courses/${course.slug}`}
+                            className="flex items-center gap-1.5 text-sm text-emerald-400 font-medium hover:text-emerald-300 transition-colors"
+                          >
+                            <CheckCircle size={15} /> Continue
+                          </Link>
                         ) : (
                           <button
                             onClick={() => handlePurchaseClick(course)}
@@ -217,7 +221,7 @@ export default function CoursesPage() {
                             <ShoppingCart size={13} />
                             {course.priceCents === 0
                               ? "Enroll Free"
-                              : "Buy Now"}
+                              : `NPR ${(course.priceCents / 100).toLocaleString("ne-NP")}`}
                           </button>
                         )}
                       </div>

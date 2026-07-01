@@ -89,7 +89,6 @@ const courseSchema = new Schema<ICourse>(
   { timestamps: true, versionKey: false },
 );
 
-courseSchema.index({ slug: 1 });
 courseSchema.index({ category: 1 });
 courseSchema.index({ isPublished: 1 });
 courseSchema.index({ createdAt: -1 });

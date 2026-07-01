@@ -56,11 +56,20 @@ export const profileApi = {
 };
 
 export const paymentApi = {
-  createIntent: (courseId: string) =>
-    api.post(API.PAYMENTS.CREATE_INTENT, { courseId }).then((r) => r.data),
-  createCheckout: (
-    courseId: string, // Add this
-  ) => api.post(API.PAYMENTS.CREATE_CHECKOUT, { courseId }).then((r) => r.data),
+  // Create a Stripe PaymentIntent and return its clientSecret for the
+  // in-page Payment Element modal. Also returns the publishable key so
+  // the client never needs to bake it into the bundle at build time.
+  createCheckout: (courseId: string) =>
+    api.post(API.PAYMENTS.CREATE_CHECKOUT, { courseId }).then(
+      (r) =>
+        r.data as {
+          clientSecret: string;
+          paymentIntentId: string;
+          amountCents: number;
+          currency: string;
+          publishableKey: string;
+        },
+    ),
   myTransactions: () =>
     api.get(API.PAYMENTS.MY_TRANSACTIONS).then((r) => r.data),
 };

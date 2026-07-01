@@ -46,6 +46,7 @@ export const createStripePaymentIntent = async (
   clientSecret: string;
   paymentIntentId: string;
   amountCents: number;
+  currency: string;
 }> => {
   const course = await Course.findById(courseId);
   if (!course || !course.isPublished) throw new Error("COURSE_NOT_FOUND");
@@ -102,12 +103,16 @@ export const createStripePaymentIntent = async (
       clientSecret: "free",
       paymentIntentId: freeIntentId,
       amountCents: 0,
+      currency: "npr",
     };
   }
 
+  // NPR — Stripe requires amounts in paisa (1 NPR = 100 paisa), same
+  // scaling as USD cents. priceCents in the DB is stored as the smallest
+  // currency unit already, so the value is correct; we just change currency.
   const paymentIntent = await stripe.paymentIntents.create({
     amount: amountCents,
-    currency: "usd",
+    currency: "npr",
     metadata: {
       userId,
       courseId,
@@ -115,9 +120,12 @@ export const createStripePaymentIntent = async (
       timestamp,
       signature,
     },
+    // allow_redirects: "never" keeps the Payment Element fully in-page.
+    // Stripe will only offer payment methods that don't require browser
+    // redirects (card, etc.), which is what we want for the modal UX.
     automatic_payment_methods: {
       enabled: true,
-      allow_redirects: "always",
+      allow_redirects: "never",
     },
   });
 
@@ -125,7 +133,7 @@ export const createStripePaymentIntent = async (
     user: userId,
     course: courseId,
     amountCents,
-    currency: "USD",
+    currency: "NPR",
     status: "pending",
     stripePaymentIntentId: paymentIntent.id,
     signature,
@@ -142,6 +150,7 @@ export const createStripePaymentIntent = async (
     clientSecret: paymentIntent.client_secret!,
     paymentIntentId: paymentIntent.id,
     amountCents,
+    currency: "npr",
   };
 };
 

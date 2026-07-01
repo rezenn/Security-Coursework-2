@@ -6,10 +6,11 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "eslint app components lib --max-warnings 20"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.3.4",
+    "@stripe/react-stripe-js": "^6.6.0",
     "@stripe/stripe-js": "^9.8.0",
     "axios": "^1.6.5",
     "clsx": "^2.1.0",
@@ -32,7 +33,7 @@
     "@types/react-dom": "^18",
     "@types/zxcvbn": "^4.4.4",
     "autoprefixer": "^10.0.1",
-    "eslint": "^8",
+    "eslint": "^9",
     "eslint-config-next": "^16.2.9",
     "postcss": "^8",
     "tailwindcss": "^3.3.0",

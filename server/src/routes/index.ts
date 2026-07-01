@@ -1,4 +1,4 @@
-import { Router, Request, Response, NextFunction } from "express";
+import { Router } from "express";
 import { body, param } from "express-validator";
 import {
   addLesson,
@@ -28,13 +28,17 @@ import {
   listUsers,
   toggleUserActive,
 } from "../controllers/admin.controller";
-import { requireAuth, requireAdmin } from "../middleware/auth.middleware";
+import {
+  requireAuth,
+  requireAdmin,
+  optionalAuth,
+} from "../middleware/auth.middleware";
 import { validateRequest } from "../middleware/validation.middleware";
 import { createPaymentRateLimiter } from "../middleware/rateLimiter.middleware";
 
 export const courseRouter = Router();
 courseRouter.get("/", listCourses);
-courseRouter.get("/:slug", getCourse);
+courseRouter.get("/:slug", optionalAuth, getCourse);
 
 export const profileRouter = Router();
 profileRouter.get("/", requireAuth, getProfile);
@@ -73,24 +77,10 @@ paymentRouter.post(
   createCheckoutSession,
 );
 
-// Import express for raw body middleware - using require for this specific case
-// OR define raw body middleware inline
-paymentRouter.post(
-  "/webhook",
-  (req: Request, res: Response, next: NextFunction) => {
-    // This handles raw body for Stripe webhook
-    let rawBody = "";
-    req.on("data", (chunk) => {
-      rawBody += chunk.toString();
-    });
-    req.on("end", () => {
-      // @ts-ignore - attaching raw body to request
-      req.rawBody = rawBody;
-      next();
-    });
-  },
-  stripeWebhook,
-);
+// Raw body for Stripe signature verification is parsed in server.ts
+// (express.raw() on this exact path, registered before express.json()).
+// req.body here is already a Buffer by the time this route handler runs.
+paymentRouter.post("/webhook", stripeWebhook);
 
 paymentRouter.get("/my-transactions", requireAuth, myTransactions);
 

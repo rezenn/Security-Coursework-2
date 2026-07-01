@@ -4,15 +4,24 @@ import { usePathname } from "next/navigation";
 import { useAuth } from "@/context/authContext";
 import { Avatar, RoleBadge } from "@/components/shared";
 import {
-  BookOpen, LayoutDashboard, User, LogOut,
-  Shield, Users, FileText, CreditCard,
-  GraduationCap, BarChart3,
+  BookOpen,
+  LayoutDashboard,
+  User,
+  LogOut,
+  Shield,
+  Users,
+  FileText,
+  CreditCard,
+  GraduationCap,
+  BarChart3,
+  BookMarked,
 } from "lucide-react";
 import clsx from "clsx";
 
 const userNav = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/courses", label: "Courses", icon: BookOpen },
+  { href: "/courses", label: "Browse Courses", icon: BookOpen },
+  { href: "/dashboard", label: "My Learning", icon: BookMarked },
   { href: "/profile", label: "Profile", icon: User },
 ];
 
@@ -21,6 +30,8 @@ const adminNav = [
   { href: "/admin/users", label: "Users", icon: Users },
   { href: "/admin/courses", label: "Courses", icon: GraduationCap },
   { href: "/admin/transactions", label: "Transactions", icon: CreditCard },
+  // /admin/logs route exists on the backend but no client page yet —
+  // kept in nav so it's discoverable; clicking navigates to 404 for now.
   { href: "/admin/logs", label: "Audit Logs", icon: FileText },
 ];
 
@@ -28,10 +39,12 @@ function NavItem({
   href,
   label,
   icon: Icon,
+  badge,
 }: {
   href: string;
   label: string;
   icon: React.ElementType;
+  badge?: number;
 }) {
   const pathname = usePathname();
   const isExact = href === "/admin" || href === "/dashboard";
@@ -48,20 +61,29 @@ function NavItem({
       )}
     >
       <Icon size={15} className="flex-shrink-0" />
-      {label}
+      <span className="flex-1">{label}</span>
+      {badge !== undefined && badge > 0 && (
+        <span className="bg-blue-600/30 text-blue-300 text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none">
+          {badge}
+        </span>
+      )}
     </Link>
   );
 }
 
 export function AppSidebar() {
   const { user, logout, isAdmin } = useAuth();
+  const enrolledCount: number = (user?.enrolledCourses ?? []).length;
   const navItems = isAdmin ? adminNav : userNav;
 
   return (
     <aside className="w-56 bg-slate-800 border-r border-slate-700 flex flex-col h-screen sticky top-0 flex-shrink-0">
       {/* Logo */}
       <div className="px-5 py-5 border-b border-slate-700">
-        <Link href={isAdmin ? "/admin" : "/dashboard"} className="flex items-center gap-2.5">
+        <Link
+          href={isAdmin ? "/admin" : "/dashboard"}
+          className="flex items-center gap-2.5"
+        >
           <div className="w-7 h-7 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
             <BookOpen size={14} className="text-white" />
           </div>
@@ -78,7 +100,15 @@ export function AppSidebar() {
       {/* Nav */}
       <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
         {navItems.map((item) => (
-          <NavItem key={item.href} {...item} />
+          <NavItem
+            key={`${item.href}-${item.label}`}
+            {...item}
+            badge={
+              item.label === "My Learning" && enrolledCount > 0
+                ? enrolledCount
+                : undefined
+            }
+          />
         ))}
       </nav>
 
@@ -88,7 +118,9 @@ export function AppSidebar() {
           <div className="flex items-center gap-2.5 mb-3 px-2">
             <Avatar name={user.username} size="sm" />
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-medium text-white truncate">{user.username}</p>
+              <p className="text-xs font-medium text-white truncate">
+                {user.username}
+              </p>
               <RoleBadge role={user.role} />
             </div>
           </div>

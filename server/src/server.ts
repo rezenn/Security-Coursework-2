@@ -70,12 +70,19 @@ app.use(
   }),
 );
 
-// ── Stripe webhook needs the RAW body for signature verification.
-// It must be registered BEFORE express.json() globally parses the body.
-// (The actual express.raw() middleware is attached to that one route in
-// routes/index.ts — this comment documents why route order matters.)
+// ── Stripe webhook needs the RAW, UNPARSED body for signature verification.
+// express.raw() MUST run on this exact path before express.json() ever
+// touches the request stream — a request body can only be consumed once.
+// This is registered here, ahead of the global JSON parser, specifically
+// because the previous approach (a manual req.on('data') handler inside
+// routes/index.ts, running after express.json() below) was reading from an
+// already-drained stream — Stripe's signature check failed on every event.
+app.use(
+  "/api/payments/webhook",
+  express.raw({ type: "application/json", limit: "1mb" }),
+);
 
-// ── Body parsers ──────────────────────────────────────────────────────────────
+// ── Body parsers (everything except the webhook route above) ──────────────────
 app.use(express.json({ limit: "15kb" }));
 app.use(express.urlencoded({ extended: true, limit: "15kb" }));
 app.use(cookieParser(config.cookie.secret));
@@ -85,8 +92,17 @@ app.use(issueCsrfToken);
 app.use(verifyCsrfToken);
 
 // ── HTTP Parameter Pollution + NoSQL injection prevention ─────────────────────
-app.use(hpp());
-app.use(mongoSanitize());
+// Skipped for the webhook route: req.body there is a raw Buffer (see above),
+// not parsed JSON — these libraries assume a plain object and would either
+// throw or mangle the Buffer before signature verification runs.
+app.use((req: Request, res: Response, next: NextFunction) => {
+  if (req.path === "/api/payments/webhook") return next();
+  hpp()(req, res, next);
+});
+app.use((req: Request, res: Response, next: NextFunction) => {
+  if (req.path === "/api/payments/webhook") return next();
+  mongoSanitize()(req, res, next);
+});
 
 // ── Inline XSS sanitizer (replaces deprecated xss-clean) ──────────────────────
 const escapeHtml = (str: string): string =>
@@ -111,6 +127,11 @@ const sanitizeValue = (val: unknown): unknown => {
 };
 
 app.use((req: Request, _res: Response, next: NextFunction) => {
+  // Skip: webhook body is a raw Buffer needed verbatim for Stripe's HMAC
+  // signature check. Buffer is typeof "object", so sanitizeValue's generic
+  // object branch would walk it via Object.entries (byte-index keys) and
+  // rebuild it as a plain object, destroying the exact bytes Stripe signed.
+  if (req.path === "/api/payments/webhook") return next();
   if (req.body) req.body = sanitizeValue(req.body);
   if (req.query) req.query = sanitizeValue(req.query) as typeof req.query;
   next();
@@ -151,7 +172,21 @@ app.use((_req: Request, res: Response) => {
 app.use(errorHandler);
 
 // ── Bootstrap ─────────────────────────────────────────────────────────────────
+const validateConfig = (): void => {
+  if (config.env !== "production") return;
+  const missing: string[] = [];
+  if (!config.stripe.secretKey) missing.push("STRIPE_SECRET_KEY");
+  if (!config.stripe.webhookSecret) missing.push("STRIPE_WEBHOOK_SECRET");
+  if (!config.stripe.publishableKey) missing.push("STRIPE_PUBLISHABLE_KEY");
+  if (missing.length) {
+    throw new Error(
+      `Missing required production env vars: ${missing.join(", ")}`,
+    );
+  }
+};
+
 const start = async (): Promise<void> => {
+  validateConfig();
   await connectDB();
   app.listen(config.port, () => {
     logger.info(`GyanKosh server running on :${config.port} [${config.env}]`);

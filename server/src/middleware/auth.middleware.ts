@@ -1,8 +1,15 @@
 import { NextFunction, Request, Response } from "express";
-import { extractBearerToken, verifyAccessToken } from "../services/token.service";
+import {
+  extractBearerToken,
+  verifyAccessToken,
+} from "../services/token.service";
 import { UserRole } from "../models/user.model";
 
-export const requireAuth = (req: Request, res: Response, next: NextFunction): void => {
+export const requireAuth = (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): void => {
   const bearer = extractBearerToken(req.headers.authorization);
   if (!bearer) {
     res.status(401).json({ error: "Authorization header is required" });
@@ -14,6 +21,26 @@ export const requireAuth = (req: Request, res: Response, next: NextFunction): vo
   } catch {
     res.status(401).json({ error: "Invalid or expired access token" });
   }
+};
+
+// Attaches req.user if a valid bearer token is present, but never rejects
+// the request — used on routes that are public but render differently for
+// authenticated/enrolled users (e.g. course detail with gated lesson content).
+export const optionalAuth = (
+  req: Request,
+  _res: Response,
+  next: NextFunction,
+): void => {
+  const bearer = extractBearerToken(req.headers.authorization);
+  if (bearer) {
+    try {
+      req.user = verifyAccessToken(bearer);
+    } catch {
+      // Invalid/expired token on an optional route: proceed unauthenticated
+      // rather than failing the request.
+    }
+  }
+  next();
 };
 
 export const requireRole = (...roles: UserRole[]) => {

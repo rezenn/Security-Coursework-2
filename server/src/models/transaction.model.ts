@@ -41,7 +41,6 @@ const transactionSchema = new Schema<ITransaction>(
 );
 
 transactionSchema.index({ user: 1 });
-transactionSchema.index({ stripePaymentIntentId: 1 }, { unique: true });
 transactionSchema.index({ status: 1 });
 
 const Transaction: Model<ITransaction> = mongoose.model<ITransaction>(

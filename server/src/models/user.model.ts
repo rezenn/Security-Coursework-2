@@ -119,7 +119,7 @@ const userSchema = new Schema<IUser>(
       enum: Object.values(AuthProvider),
       default: AuthProvider.LOCAL,
     },
-    googleId: { type: String, default: null, sparse: true },
+    googleId: { type: String, default: null },
     isActive: { type: Boolean, default: true },
     isEmailVerified: { type: Boolean, default: false },
 
