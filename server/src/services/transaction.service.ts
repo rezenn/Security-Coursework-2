@@ -73,7 +73,7 @@ export const createStripePaymentIntent = async (
             user: userId,
             course: courseId,
             amountCents: 0,
-            currency: "USD",
+            currency: "NPR",
             status: "completed",
             stripePaymentIntentId: freeIntentId,
             signature,
@@ -154,116 +154,12 @@ export const createStripePaymentIntent = async (
   };
 };
 
-// ── Create Stripe Checkout Session ──────────────────────────────────────────
-export const createStripeCheckoutSession = async (
-  userId: string,
-  courseId: string,
-  userIp: string,
-): Promise<{ url: string; sessionId: string }> => {
-  const course = await Course.findById(courseId);
-  if (!course || !course.isPublished) throw new Error("COURSE_NOT_FOUND");
-
-  const existing = await Transaction.findOne({
-    user: userId,
-    course: courseId,
-    status: "completed",
-  });
-  if (existing) throw new Error("ALREADY_ENROLLED");
-
-  const amountCents = course.priceCents;
-  const timestamp = new Date().toISOString();
-  const signature = signTransaction(userId, courseId, amountCents, timestamp);
-
-  // Free course
-  if (amountCents === 0) {
-    const freeIntentId = `free_${Date.now()}_${userId.slice(-6)}`;
-    const session = await mongoose.startSession();
-    await session.withTransaction(async () => {
-      await Transaction.create(
-        [
-          {
-            user: userId,
-            course: courseId,
-            amountCents: 0,
-            currency: "USD",
-            status: "completed",
-            stripePaymentIntentId: freeIntentId,
-            signature,
-            metadata: { timestamp, free: true },
-          },
-        ],
-        { session },
-      );
-      await User.findByIdAndUpdate(
-        userId,
-        { $addToSet: { enrolledCourses: courseId } },
-        { session },
-      );
-      await Course.findByIdAndUpdate(
-        courseId,
-        { $inc: { enrolledCount: 1 } },
-        { session },
-      );
-    });
-    session.endSession();
-    logSecurityEvent("payment_completed", userId, userIp, {
-      courseId,
-      amountCents: 0,
-      free: true,
-    });
-    return {
-      url: `${process.env.FRONTEND_URL || "http://localhost:3000"}/dashboard`,
-      sessionId: freeIntentId,
-    };
-  }
-
-  const checkoutSession = await stripe.checkout.sessions.create({
-    payment_method_types: ["card"],
-    line_items: [
-      {
-        price_data: {
-          currency: "usd",
-          product_data: {
-            name: course.title,
-            description:
-              course.description?.slice(0, 200) || "Course enrollment",
-          },
-          unit_amount: amountCents,
-        },
-        quantity: 1,
-      },
-    ],
-    mode: "payment",
-    success_url: `${process.env.FRONTEND_URL || "http://localhost:3000"}/payment/success?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${process.env.FRONTEND_URL || "http://localhost:3000"}/courses`,
-    metadata: {
-      userId,
-      courseId,
-      amountCents: amountCents.toString(),
-      timestamp,
-      signature,
-    },
-  });
-
-  await Transaction.create({
-    user: userId,
-    course: courseId,
-    amountCents,
-    currency: "USD",
-    status: "pending",
-    stripePaymentIntentId: checkoutSession.id,
-    signature,
-    metadata: { timestamp, checkoutSessionId: checkoutSession.id },
-  });
-
-  logSecurityEvent("checkout_session_created", userId, userIp, {
-    courseId,
-    amountCents,
-    sessionId: checkoutSession.id,
-  });
-
-  return { url: checkoutSession.url!, sessionId: checkoutSession.id };
-};
+// NOTE: An older `createStripeCheckoutSession` (redirect-based Stripe
+// Checkout) used to live here. It was never called anywhere — the app
+// switched to the in-page PaymentIntent + Payment Element flow above — and
+// it still hardcoded "usd"/"USD" against an NPR-only schema, so it was
+// removed rather than fixed. If a hosted-redirect checkout is ever needed
+// again, rebuild it against createStripePaymentIntent's NPR conventions.
 
 // ── Handle Stripe Webhook ────────────────────────────────────────────────────
 export const handleStripeWebhook = async (

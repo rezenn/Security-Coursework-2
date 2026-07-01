@@ -21,7 +21,10 @@ import clsx from "clsx";
 const userNav = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/courses", label: "Browse Courses", icon: BookOpen },
-  { href: "/dashboard", label: "My Learning", icon: BookMarked },
+  // Was pointing at "/dashboard" — identical to the Dashboard link above, so
+  // "My Learning" never actually navigated anywhere new. Now points at its
+  // own route with the full enrolled-courses grid.
+  { href: "/my-learning", label: "My Learning", icon: BookMarked },
   { href: "/profile", label: "Profile", icon: User },
 ];
 
@@ -116,7 +119,11 @@ export function AppSidebar() {
       {user && (
         <div className="px-3 py-4 border-t border-slate-700">
           <div className="flex items-center gap-2.5 mb-3 px-2">
-            <Avatar name={user.username} size="sm" />
+            <Avatar
+              name={user.username}
+              size="sm"
+              imageUrl={user.profile?.avatarUrl}
+            />
             <div className="min-w-0 flex-1">
               <p className="text-xs font-medium text-white truncate">
                 {user.username}

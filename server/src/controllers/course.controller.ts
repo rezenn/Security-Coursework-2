@@ -94,16 +94,8 @@ export const createCourse = async (
     return;
   }
 
-  const {
-    title,
-    description,
-    instructor,
-    category,
-    level,
-    priceCents,
-    currency,
-    tags,
-  } = req.body;
+  const { title, description, instructor, category, level, priceCents, tags } =
+    req.body;
 
   if (!title || !description || !category) {
     res
@@ -130,7 +122,7 @@ export const createCourse = async (
     category,
     level: level || "beginner",
     priceCents: parseInt(String(priceCents), 10) || 0,
-    currency: currency || "USD",
+    currency: "NPR", // GyanKosh settles in NPR only; ignore any client-supplied value
     tags: Array.isArray(tags) ? tags : [],
     createdBy: req.user.sub,
   });
@@ -161,7 +153,6 @@ export const updateCourse = async (
     "category",
     "level",
     "priceCents",
-    "currency",
     "tags",
     "thumbnail",
     "isPublished",

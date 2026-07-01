@@ -3,7 +3,7 @@ import mongoose, { Document, Schema, Model } from "mongoose";
 export interface ITransaction extends Document {
   user: mongoose.Types.ObjectId;
   course: mongoose.Types.ObjectId;
-  amountCents: number; // stored in cents for Stripe (1 USD = 100 cents)
+  amountCents: number; // stored in paisa, matching Stripe's smallest-unit convention (1 NPR = 100 paisa)
   currency: string;
   status: "pending" | "completed" | "failed" | "refunded";
   stripePaymentIntentId: string; // Stripe PaymentIntent ID
@@ -22,7 +22,7 @@ const transactionSchema = new Schema<ITransaction>(
     currency: {
       type: String,
       required: true,
-      default: "USD",
+      default: "NPR",
       uppercase: true,
       maxlength: 3,
     },

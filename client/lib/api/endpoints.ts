@@ -21,10 +21,13 @@ export const API = {
     UPDATE: "/profile",
     CHANGE_PASSWORD: "/profile/change-password",
     EXPORT: "/profile/export",
+    AVATAR: "/profile/avatar",
   },
   PAYMENTS: {
-    CREATE_INTENT: "/payments/create-intent",
-    CREATE_CHECKOUT: "/payments/create-checkout", // Add this
+    // Backend only exposes /payments/create-checkout (see server/src/routes/index.ts).
+    // A stray /payments/create-intent constant here previously had no route,
+    // so anything that pointed at it would 404 before Stripe was ever reached.
+    CREATE_CHECKOUT: "/payments/create-checkout",
     MY_TRANSACTIONS: "/payments/my-transactions",
   },
   ADMIN: {
@@ -37,6 +40,7 @@ export const API = {
     UPDATE_COURSE: (id: string) => `/admin/courses/${id}`,
     DELETE_COURSE: (id: string) => `/admin/courses/${id}`,
     ADD_LESSON: (id: string) => `/admin/courses/${id}/lessons`,
+    UPLOAD_THUMBNAIL: (id: string) => `/admin/courses/${id}/thumbnail`,
     UPDATE_LESSON: (id: string, lessonId: string) =>
       `/admin/courses/${id}/lessons/${lessonId}`,
     DELETE_LESSON: (id: string, lessonId: string) =>

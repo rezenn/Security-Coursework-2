@@ -42,10 +42,15 @@ app.use(
         ],
         styleSrc: ["'self'", "'unsafe-inline'"],
         imgSrc: ["'self'", "data:", "https:"],
-        connectSrc: ["'self'", "https://api.stripe.com"],
+        connectSrc: [
+          "'self'",
+          "https://api.stripe.com",
+          "https://m.stripe.network",
+        ],
         frameSrc: [
           "https://js.stripe.com",
           "https://hooks.stripe.com",
+          "https://m.stripe.network",
           "https://www.google.com",
         ],
       },
@@ -173,14 +178,29 @@ app.use(errorHandler);
 
 // ── Bootstrap ─────────────────────────────────────────────────────────────────
 const validateConfig = (): void => {
-  if (config.env !== "production") return;
   const missing: string[] = [];
+  // These are required in every environment: a missing publishable key
+  // doesn't crash the server, it silently breaks payment on the client
+  // (loadStripe("") fails and the Payment Element never mounts), so we
+  // fail fast at boot instead of failing invisibly at checkout time.
   if (!config.stripe.secretKey) missing.push("STRIPE_SECRET_KEY");
-  if (!config.stripe.webhookSecret) missing.push("STRIPE_WEBHOOK_SECRET");
   if (!config.stripe.publishableKey) missing.push("STRIPE_PUBLISHABLE_KEY");
   if (missing.length) {
     throw new Error(
-      `Missing required production env vars: ${missing.join(", ")}`,
+      `Missing required env vars: ${missing.join(", ")}. Payment features will not work without them — see server/.env.example.`,
+    );
+  }
+
+  if (config.env === "production" && !config.stripe.webhookSecret) {
+    throw new Error(
+      "Missing required production env var: STRIPE_WEBHOOK_SECRET",
+    );
+  }
+  if (config.env !== "production" && !config.stripe.webhookSecret) {
+    logger.warn(
+      "STRIPE_WEBHOOK_SECRET is not set — card payments will charge successfully " +
+        "but users will NOT be enrolled, since enrollment happens in the webhook handler. " +
+        "Run `stripe listen --forward-to localhost:5000/api/payments/webhook` locally.",
     );
   }
 };

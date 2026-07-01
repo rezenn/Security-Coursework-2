@@ -24,8 +24,7 @@ const EMPTY_FORM = {
   instructor: "",
   category: "Programming",
   level: "beginner",
-  priceDisplay: "0", // shown in form as display value (dollars)
-  currency: "USD",
+  priceDisplay: "0", // shown in form as display value (rupees)
   tags: "",
 };
 
@@ -71,7 +70,6 @@ export default function AdminCoursesPage() {
       category: c.category,
       level: c.level,
       priceDisplay: String(c.priceCents / 100),
-      currency: c.currency || "USD",
       tags: (c.tags || []).join(", "),
     });
     setShowForm(true);
@@ -81,7 +79,7 @@ export default function AdminCoursesPage() {
     e.preventDefault();
     setSaving(true);
     try {
-      // Store as cents (1 USD = 100 cents)
+      // Store as paisa (1 NPR = 100 paisa) — platform is NPR-only
       const priceCents = Math.round(parseFloat(form.priceDisplay || "0") * 100);
       const payload = {
         title: form.title,
@@ -90,7 +88,6 @@ export default function AdminCoursesPage() {
         category: form.category,
         level: form.level,
         priceCents,
-        currency: form.currency,
         tags: form.tags
           .split(",")
           .map((t: string) => t.trim())
@@ -250,10 +247,10 @@ export default function AdminCoursesPage() {
                 </div>
               </div>
               <div>
-                <label className="label">Price (USD) — enter 0 for free</label>
+                <label className="label">Price (NPR) — enter 0 for free</label>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">
-                    $
+                    Rs.
                   </span>
                   <input
                     type="number"
@@ -268,9 +265,10 @@ export default function AdminCoursesPage() {
                   />
                 </div>
                 {parseFloat(form.priceDisplay) > 0 &&
-                  parseFloat(form.priceDisplay) < 0.5 && (
+                  parseFloat(form.priceDisplay) < 50 && (
                     <p className="text-xs text-amber-400 mt-1">
-                      ⚠ Stripe minimum is $0.50
+                      ⚠ Stripe's minimum charge is roughly Rs. 50 (~$0.50) —
+                      smaller amounts may be rejected at checkout.
                     </p>
                   )}
               </div>
@@ -365,7 +363,7 @@ export default function AdminCoursesPage() {
                     {c.priceCents === 0 ? (
                       <span className="text-emerald-400">Free</span>
                     ) : (
-                      `$${(c.priceCents / 100).toFixed(2)}`
+                      `Rs. ${(c.priceCents / 100).toFixed(2)}`
                     )}
                   </td>
                   <td className="px-4 py-3 text-slate-300 text-sm">

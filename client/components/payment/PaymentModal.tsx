@@ -58,6 +58,7 @@ interface InnerFormProps {
   courseTitle: string;
   amountCents: number;
   isFree: boolean;
+  isProcessing: boolean;
   onSuccess: () => void;
   onError: (msg: string) => void;
   onProcessing: (v: boolean) => void;
@@ -67,6 +68,7 @@ function PaymentForm({
   courseTitle,
   amountCents,
   isFree,
+  isProcessing,
   onSuccess,
   onError,
   onProcessing,
@@ -115,7 +117,22 @@ function PaymentForm({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 relative">
+      {/* Processing overlay — the Payment Element stays mounted underneath
+          while stripe.confirmPayment() is in flight. Unmounting it mid-call
+          (as the old full-screen "processing" state used to do) is exactly
+          what throws Stripe's "elements should have a mounted Payment
+          Element" IntegrationError. */}
+      {isProcessing && (
+        <div className="absolute inset-0 z-10 bg-slate-800/90 backdrop-blur-sm rounded-xl flex flex-col items-center justify-center">
+          <span className="inline-block w-8 h-8 border-2 border-blue-600/30 border-t-blue-500 rounded-full animate-spin mb-3" />
+          <p className="text-white font-medium text-sm">Processing payment…</p>
+          <p className="text-slate-400 text-xs mt-1">
+            Please don&apos;t close this window
+          </p>
+        </div>
+      )}
+
       {/* Order summary */}
       <div className="bg-slate-900/60 rounded-xl p-4 border border-slate-700">
         <div className="flex items-start gap-3">
@@ -150,10 +167,16 @@ function PaymentForm({
 
       <button
         onClick={handleSubmit}
-        disabled={isSubmitting || !stripe || !elements || !isElementReady}
+        disabled={
+          isSubmitting ||
+          isProcessing ||
+          !stripe ||
+          !elements ||
+          !isElementReady
+        }
         className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold py-3 px-4 rounded-xl transition-colors flex items-center justify-center gap-2 text-sm"
       >
-        {isSubmitting ? (
+        {isSubmitting || isProcessing ? (
           <>
             <span className="inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
             Processing…
@@ -346,39 +369,35 @@ export function PaymentModal({
             </div>
           )}
 
-          {/* READY — Stripe Payment Element mounted */}
-          {state === "ready" && clientSecret && stripePromise && (
-            <Elements
-              stripe={stripePromise}
-              options={{
-                clientSecret,
-                appearance: STRIPE_APPEARANCE,
-                locale: "en",
-              }}
-            >
-              <PaymentForm
-                courseTitle={courseTitle}
-                amountCents={amount}
-                isFree={false}
-                onSuccess={handlePaymentSuccess}
-                onError={handlePaymentError}
-                onProcessing={(v) => setState(v ? "processing" : "ready")}
-              />
-            </Elements>
-          )}
-
-          {/* PROCESSING */}
-          {state === "processing" && (
-            <div className="text-center py-10">
-              <span className="inline-block w-8 h-8 border-2 border-blue-600/30 border-t-blue-500 rounded-full animate-spin mb-4" />
-              <p className="text-white font-medium text-sm">
-                Processing payment…
-              </p>
-              <p className="text-slate-400 text-xs mt-1">
-                Please don&apos;t close this window
-              </p>
-            </div>
-          )}
+          {/* READY / PROCESSING — Stripe Payment Element stays mounted across
+              both states. Previously "processing" was a separate render
+              branch that replaced this block entirely, unmounting the
+              Payment Element out from under an in-flight
+              stripe.confirmPayment() call — that's what produced the
+              "elements should have a mounted Payment Element" error and the
+              stuck "don't close this window" spinner with a failed toast. */}
+          {(state === "ready" || state === "processing") &&
+            clientSecret &&
+            stripePromise && (
+              <Elements
+                stripe={stripePromise}
+                options={{
+                  clientSecret,
+                  appearance: STRIPE_APPEARANCE,
+                  locale: "en",
+                }}
+              >
+                <PaymentForm
+                  courseTitle={courseTitle}
+                  amountCents={amount}
+                  isFree={false}
+                  isProcessing={state === "processing"}
+                  onSuccess={handlePaymentSuccess}
+                  onError={handlePaymentError}
+                  onProcessing={(v) => setState(v ? "processing" : "ready")}
+                />
+              </Elements>
+            )}
 
           {/* SUCCESS */}
           {state === "success" && (

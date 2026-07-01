@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, Request, Response, NextFunction } from "express";
 import { body, param } from "express-validator";
 import {
   addLesson,
@@ -11,12 +11,14 @@ import {
   reorderLessons,
   updateCourse,
   updateLesson,
+  uploadThumbnail,
 } from "../controllers/course.controller";
 import {
   changePassword,
   exportProfile,
   getProfile,
   updateProfile,
+  uploadAvatarHandler,
 } from "../controllers/profile.controller";
 import {
   adminListTransactions,
@@ -38,6 +40,10 @@ import {
 } from "../middleware/auth.middleware";
 import { validateRequest } from "../middleware/validation.middleware";
 import { createPaymentRateLimiter } from "../middleware/rateLimiter.middleware";
+import {
+  uploadAvatar,
+  uploadCourseThumbnail,
+} from "../middleware/upload.middleware";
 
 export const courseRouter = Router();
 courseRouter.get("/", listCourses);
@@ -69,6 +75,22 @@ profileRouter.post(
   changePassword,
 );
 profileRouter.get("/export", requireAuth, exportProfile);
+profileRouter.post(
+  "/avatar",
+  requireAuth,
+  (req: Request, res: Response, next: NextFunction) => {
+    uploadAvatar(req, res, (err: unknown) => {
+      if (err) {
+        res
+          .status(400)
+          .json({ error: (err as Error).message || "Upload failed" });
+        return;
+      }
+      next();
+    });
+  },
+  uploadAvatarHandler,
+);
 
 export const paymentRouter = Router();
 paymentRouter.post(
@@ -135,14 +157,9 @@ adminRouter.post(
   validateRequest,
   addLesson,
 );
-// Must be registered before the /:lessonId route below so "reorder" isn't
-// swallowed as a lessonId param.
 adminRouter.patch(
   "/courses/:id/lessons/reorder",
-  [
-    param("id").isMongoId(),
-    body("lessonIds").isArray({ min: 1 }).withMessage("lessonIds required"),
-  ],
+  [param("id").isMongoId(), body("lessonIds").isArray({ min: 1 })],
   validateRequest,
   reorderLessons,
 );
@@ -157,5 +174,20 @@ adminRouter.delete(
   [param("id").isMongoId(), param("lessonId").isMongoId()],
   validateRequest,
   deleteLesson,
+);
+adminRouter.post(
+  "/courses/:id/thumbnail",
+  [param("id").isMongoId()],
+  validateRequest,
+  (req, res, next) => {
+    uploadCourseThumbnail(req, res, (err) => {
+      if (err) {
+        res.status(400).json({ error: err.message || "Upload failed" });
+        return;
+      }
+      next();
+    });
+  },
+  uploadThumbnail,
 );
 adminRouter.get("/transactions", adminListTransactions);
