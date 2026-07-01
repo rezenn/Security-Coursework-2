@@ -20,10 +20,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js 20
+      - name: Setup Node.js 24
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "24"
           cache: "npm"
           cache-dependency-path: server/package-lock.json
 
@@ -37,7 +37,7 @@ jobs:
         run: npx eslint src --ext .ts --max-warnings 0 || true
 
       - name: npm audit (dependency vulnerability scan)
-        run: npm audit --audit-level=critical --omit=dev  
+        run: npm audit --audit-level=critical --omit=dev
         continue-on-error: false
 
       - name: Build TypeScript
@@ -56,10 +56,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js 20
+      - name: Setup Node.js 24
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "24"
           cache: "npm"
           cache-dependency-path: client/package-lock.json
 
@@ -73,7 +73,7 @@ jobs:
         run: npm run lint || true
 
       - name: npm audit (dependency vulnerability scan)
-        run: npm audit --audit-level=critical --omit=dev  
+        run: npm audit --audit-level=critical --omit=dev
         continue-on-error: false
 
   # ── Secret scanning ───────────────────────────────────────────────────────

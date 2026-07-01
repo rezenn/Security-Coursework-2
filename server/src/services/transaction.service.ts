@@ -131,6 +131,15 @@ export const createStripeCheckoutSession = async (
       timestamp,
       signature,
     },
+    payment_intent_data: {
+      metadata: {
+        userId,
+        courseId,
+        amountCents: amountCents.toString(),
+        timestamp,
+        signature,
+      },
+    },
     success_url: `${config.frontendUrl}/payment/success?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${config.frontendUrl}/courses/${course.slug}`,
   });
@@ -176,43 +185,99 @@ export const completeCheckoutSession = async (
   }
 
   const metadata = session.metadata as {
-    userId: string;
-    courseId: string;
-    amountCents: string;
-    timestamp: string;
-    signature: string;
+    userId?: string;
+    courseId?: string;
+    amountCents?: string;
+    timestamp?: string;
+    signature?: string;
   } | null;
 
-  if (!metadata) {
-    logger.error("No metadata in Stripe Checkout Session", {
+  const normalizedSessionPaymentIntentId =
+    typeof session.payment_intent === "string"
+      ? session.payment_intent
+      : (session.payment_intent as Stripe.PaymentIntent | null)?.id || null;
+
+  const metadataSource =
+    metadata ??
+    ((session.payment_intent as Stripe.PaymentIntent | null)?.metadata as {
+      userId?: string;
+      courseId?: string;
+      amountCents?: string;
+      timestamp?: string;
+      signature?: string;
+    } | null);
+
+  let sessionUserId = metadataSource?.userId;
+  let courseId = metadataSource?.courseId;
+  let amountCents = metadataSource?.amountCents;
+  let timestamp = metadataSource?.timestamp;
+  let signature = metadataSource?.signature;
+
+  const txnBySession = await Transaction.findOne({
+    stripePaymentIntentId: session.id,
+    status: "pending",
+  });
+
+  const txnByIntent = normalizedSessionPaymentIntentId
+    ? await Transaction.findOne({
+        stripePaymentIntentId: normalizedSessionPaymentIntentId,
+        status: "pending",
+      })
+    : null;
+
+  const txn = txnBySession || txnByIntent;
+  if (!txn) {
+    logger.warn("Checkout transaction not found", {
       sessionId: session.id,
+      paymentIntentId: normalizedSessionPaymentIntentId,
     });
-    throw new Error("MISSING_METADATA");
+    throw new Error("TRANSACTION_NOT_FOUND");
   }
 
-  const {
-    userId: metadataUser,
-    courseId,
-    amountCents,
-    timestamp,
-    signature,
-  } = metadata;
+  if (!sessionUserId || !courseId || !amountCents || !timestamp || !signature) {
+    logger.warn(
+      "Checkout session metadata incomplete, using transaction fallback",
+      {
+        sessionId: session.id,
+        paymentIntentId: normalizedSessionPaymentIntentId,
+      },
+    );
+    sessionUserId = txn.user.toString();
+    courseId = txn.course.toString();
+    amountCents = String(txn.amountCents);
+    timestamp = new Date().toISOString();
+    signature = txn.signature;
+  } else {
+    if (sessionUserId !== userId) {
+      logger.warn("Checkout session user mismatch", {
+        sessionId: session.id,
+        expectedUserId: userId,
+        metadataUser: sessionUserId,
+      });
+      throw new Error("USER_MISMATCH");
+    }
 
-  if (!metadataUser || !courseId || !amountCents || !timestamp || !signature) {
-    logger.error("Missing metadata", {
-      sessionId: session.id,
-      metadata: session.metadata,
-    });
-    throw new Error("MISSING_METADATA");
+    const isValid = verifyTransactionSignature(
+      sessionUserId,
+      courseId,
+      parseInt(amountCents, 10),
+      timestamp,
+      signature,
+    );
+
+    if (!isValid) {
+      logger.error("HMAC signature mismatch", { sessionId: session.id });
+      throw new Error("HMAC_VERIFICATION_FAILED");
+    }
   }
 
-  if (metadataUser !== userId) {
-    logger.warn("Checkout session user mismatch", {
-      sessionId: session.id,
-      expectedUserId: userId,
-      metadataUser,
+  if (txn.amountCents !== parseInt(amountCents, 10)) {
+    logger.error("Amount mismatch", {
+      expected: txn.amountCents,
+      received: amountCents,
     });
-    throw new Error("USER_MISMATCH");
+    await Transaction.findByIdAndUpdate(txn._id, { status: "failed" });
+    throw new Error("AMOUNT_MISMATCH");
   }
 
   if (session.status !== "complete" && session.payment_status !== "paid") {
@@ -408,53 +473,81 @@ const handleCheckoutSessionCompleted = async (
     signature: string;
   } | null;
 
-  if (!metadata) {
-    logger.error("No metadata in Stripe Checkout Session", {
-      sessionId: session.id,
-    });
-    throw new Error("MISSING_METADATA");
-  }
+  const normalizedSessionPaymentIntentId =
+    typeof session.payment_intent === "string"
+      ? session.payment_intent
+      : (session.payment_intent as Stripe.PaymentIntent | null)?.id || null;
 
-  const {
-    userId,
-    courseId,
-    amountCents,
-    timestamp,
-    signature: hmacSignature,
-  } = metadata;
+  const metadataSource =
+    metadata ??
+    ((session.payment_intent as Stripe.PaymentIntent | null)?.metadata as {
+      userId?: string;
+      courseId?: string;
+      amountCents?: string;
+      timestamp?: string;
+      signature?: string;
+    } | null);
 
-  if (!userId || !courseId || !amountCents || !timestamp || !hmacSignature) {
-    logger.error("Missing metadata", {
-      sessionId: session.id,
-      metadata: session.metadata,
-    });
-    throw new Error("MISSING_METADATA");
-  }
+  let userId = metadataSource?.userId;
+  let courseId = metadataSource?.courseId;
+  let amountCents = metadataSource?.amountCents;
+  let timestamp = metadataSource?.timestamp;
+  let hmacSignature = metadataSource?.signature;
 
-  const isValid = verifyTransactionSignature(
-    userId,
-    courseId,
-    parseInt(amountCents, 10),
-    timestamp,
-    hmacSignature,
-  );
-
-  if (!isValid) {
-    logger.error("HMAC signature mismatch", { sessionId: session.id });
-    throw new Error("HMAC_VERIFICATION_FAILED");
-  }
-
-  // Find transaction
-  let txn = await Transaction.findOne({
+  const txnBySession = await Transaction.findOne({
     stripePaymentIntentId: session.id,
     status: "pending",
   });
 
-  if (!txn && session.payment_intent) {
-    txn = await Transaction.findOne({
-      stripePaymentIntentId: session.payment_intent as string,
-      status: "pending",
+  const txnByIntent = normalizedSessionPaymentIntentId
+    ? await Transaction.findOne({
+        stripePaymentIntentId: normalizedSessionPaymentIntentId,
+        status: "pending",
+      })
+    : null;
+
+  const txn = txnBySession || txnByIntent;
+
+  if (!txn) {
+    logger.warn("Transaction not found", { sessionId: session.id });
+    throw new Error("TRANSACTION_NOT_FOUND");
+  }
+
+  if (!userId || !courseId || !amountCents || !timestamp || !hmacSignature) {
+    logger.warn(
+      "Checkout session metadata incomplete, completing by transaction lookup",
+      {
+        sessionId: session.id,
+        paymentIntentId: normalizedSessionPaymentIntentId,
+      },
+    );
+    userId = txn.user.toString();
+    courseId = txn.course.toString();
+    amountCents = String(txn.amountCents);
+    timestamp = new Date().toISOString();
+    hmacSignature = txn.signature;
+  } else {
+    const isValid = verifyTransactionSignature(
+      userId,
+      courseId,
+      parseInt(amountCents, 10),
+      timestamp,
+      hmacSignature,
+    );
+
+    if (!isValid) {
+      logger.error("HMAC signature mismatch", { sessionId: session.id });
+      throw new Error("HMAC_VERIFICATION_FAILED");
+    }
+  }
+
+  if (txn.amountCents !== parseInt(amountCents, 10)) {
+    logger.error("Amount mismatch", {
+      expected: txn.amountCents,
+      received: amountCents,
     });
+    await Transaction.findByIdAndUpdate(txn._id, { status: "failed" });
+    throw new Error("AMOUNT_MISMATCH");
   }
 
   if (!txn) {
@@ -527,65 +620,74 @@ const handlePaymentIntentSucceeded = async (
   paymentIntent: Stripe.PaymentIntent,
 ) => {
   const metadata = paymentIntent.metadata as {
-    userId: string;
-    courseId: string;
-    amountCents: string;
-    timestamp: string;
-    signature: string;
+    userId?: string;
+    courseId?: string;
+    amountCents?: string;
+    timestamp?: string;
+    signature?: string;
   } | null;
 
-  if (!metadata) {
-    logger.error("No metadata in Stripe PaymentIntent", {
-      paymentIntentId: paymentIntent.id,
-    });
-    throw new Error("MISSING_METADATA");
-  }
+  const userId = metadata?.userId;
+  const courseId = metadata?.courseId;
+  const amountCents = metadata?.amountCents;
+  const timestamp = metadata?.timestamp;
+  const hmacSignature = metadata?.signature;
 
-  const {
-    userId,
-    courseId,
-    amountCents,
-    timestamp,
-    signature: hmacSignature,
-  } = metadata;
-
-  if (!userId || !courseId || !amountCents || !timestamp || !hmacSignature) {
-    logger.error("Missing metadata", { paymentIntentId: paymentIntent.id });
-    throw new Error("MISSING_METADATA");
-  }
-
-  const isValid = verifyTransactionSignature(
-    userId,
-    courseId,
-    parseInt(amountCents, 10),
-    timestamp,
-    hmacSignature,
-  );
-
-  if (!isValid) {
-    logger.error("HMAC signature mismatch", {
-      paymentIntentId: paymentIntent.id,
-    });
-    throw new Error("HMAC_VERIFICATION_FAILED");
-  }
-
-  const txn = await Transaction.findOne({
+  const txnByIntent = await Transaction.findOne({
     stripePaymentIntentId: paymentIntent.id,
     status: "pending",
   });
 
+  let txn = txnByIntent;
+  if (!txn && userId && courseId && amountCents) {
+    txn = await Transaction.findOne({
+      user: userId,
+      course: courseId,
+      amountCents: parseInt(amountCents, 10),
+      status: "pending",
+    }).sort({ createdAt: -1 });
+  }
+
   if (!txn) {
-    logger.warn("Transaction not found", { paymentIntentId: paymentIntent.id });
+    logger.warn("Transaction not found", {
+      paymentIntentId: paymentIntent.id,
+      metadata: paymentIntent.metadata,
+    });
     throw new Error("TRANSACTION_NOT_FOUND");
   }
 
-  if (txn.amountCents !== parseInt(amountCents, 10)) {
-    logger.error("Amount mismatch", {
-      expected: txn.amountCents,
-      received: amountCents,
-    });
-    await Transaction.findByIdAndUpdate(txn._id, { status: "failed" });
-    throw new Error("AMOUNT_MISMATCH");
+  if (!userId || !courseId || !amountCents || !timestamp || !hmacSignature) {
+    logger.warn(
+      "PaymentIntent metadata incomplete, completing by transaction fallback",
+      {
+        paymentIntentId: paymentIntent.id,
+        transactionId: txn._id,
+      },
+    );
+  } else {
+    const isValid = verifyTransactionSignature(
+      userId,
+      courseId,
+      parseInt(amountCents, 10),
+      timestamp,
+      hmacSignature,
+    );
+
+    if (!isValid) {
+      logger.error("HMAC signature mismatch", {
+        paymentIntentId: paymentIntent.id,
+      });
+      throw new Error("HMAC_VERIFICATION_FAILED");
+    }
+
+    if (txn.amountCents !== parseInt(amountCents, 10)) {
+      logger.error("Amount mismatch", {
+        expected: txn.amountCents,
+        received: amountCents,
+      });
+      await Transaction.findByIdAndUpdate(txn._id, { status: "failed" });
+      throw new Error("AMOUNT_MISMATCH");
+    }
   }
 
   const session = await mongoose.startSession();
@@ -602,7 +704,7 @@ const handlePaymentIntentSucceeded = async (
       );
 
       await User.findByIdAndUpdate(
-        userId,
+        userId ?? txn.user,
         { $addToSet: { enrolledCourses: txn.course } },
         { session },
       );
@@ -623,17 +725,22 @@ const handlePaymentIntentSucceeded = async (
     session.endSession();
   }
 
-  logSecurityEvent("payment_completed", userId, "webhook", {
-    courseId: txn.course.toString(),
-    amountCents: txn.amountCents,
-    paymentIntentId: paymentIntent.id,
-    chargeId: paymentIntent.latest_charge,
-  });
+  logSecurityEvent(
+    "payment_completed",
+    userId ?? txn.user.toString(),
+    "webhook",
+    {
+      courseId: txn.course.toString(),
+      amountCents: txn.amountCents,
+      paymentIntentId: paymentIntent.id,
+      chargeId: paymentIntent.latest_charge,
+    },
+  );
 
   logger.info("✅ Payment completed via Stripe PaymentIntent", {
     paymentIntentId: paymentIntent.id,
-    userId,
-    courseId,
+    userId: userId ?? txn.user.toString(),
+    courseId: txn.course.toString(),
     transactionId: txn._id,
   });
 };
