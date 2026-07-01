@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { useAuth } from "@/context/authContext";
 import { Avatar, RoleBadge } from "@/components/shared";
 import { LogoutModal } from "@/components/auth/LogoutModal";
+import Image from "next/image";
 import {
   BookOpen,
   LayoutDashboard,
@@ -90,9 +91,16 @@ export function AppSidebar() {
           href={isAdmin ? "/admin" : "/dashboard"}
           className="flex items-center gap-2.5"
         >
-          <div className="w-7 h-7 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
-            <BookOpen size={14} className="text-white" />
-          </div>
+         <div className="relative w-8 h-8 rounded-lg overflow-hidden shadow-lg">
+                       <Image
+                         src="/images/logo.jpg"
+                         alt="GyanKosh Logo"
+                         width={32}
+                         height={32}
+                         className="object-cover w-full h-full"
+                         priority
+                       />
+                     </div>
           <span className="font-bold text-white text-base">GyanKosh</span>
         </Link>
         {isAdmin && (
