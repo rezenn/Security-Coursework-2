@@ -45,10 +45,7 @@ export const listCourses = async (
 };
 
 // ── GET /api/courses/:slug ───────────────────────────────────────────────────
-export const getCourse = async (
-  req: Request,
-  res: Response,
-): Promise<void> => {
+export const getCourse = async (req: Request, res: Response): Promise<void> => {
   const course = await Course.findOne({
     slug: req.params.slug,
     isPublished: true,
@@ -224,10 +221,7 @@ export const deleteCourse = async (
 };
 
 // ── POST /api/admin/courses/:id/lessons ──────────────────────────────────────
-export const addLesson = async (
-  req: Request,
-  res: Response,
-): Promise<void> => {
+export const addLesson = async (req: Request, res: Response): Promise<void> => {
   if (!req.user) {
     res.status(401).json({ error: "Authentication required" });
     return;
@@ -265,6 +259,140 @@ export const addLesson = async (
   });
 
   res.status(201).json({ message: "Lesson added", course });
+};
+
+// ── PATCH /api/admin/courses/:id/lessons/:lessonId ───────────────────────────
+export const updateLesson = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  if (!req.user) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+
+  const course = await Course.findById(req.params.id);
+  if (!course) {
+    res.status(404).json({ error: "Course not found" });
+    return;
+  }
+
+  const lesson = course.lessons.id(req.params.lessonId);
+  if (!lesson) {
+    res.status(404).json({ error: "Lesson not found" });
+    return;
+  }
+
+  const ALLOWED_FIELDS = [
+    "title",
+    "description",
+    "videoUrl",
+    "duration",
+    "order",
+    "isFree",
+  ] as const;
+
+  ALLOWED_FIELDS.forEach((k) => {
+    if (req.body[k] !== undefined) {
+      if (k === "duration" || k === "order") {
+        (lesson as any)[k] = parseInt(String(req.body[k]), 10) || 0;
+      } else if (k === "isFree") {
+        lesson.isFree = Boolean(req.body[k]);
+      } else {
+        (lesson as any)[k] = String(req.body[k]).trim();
+      }
+    }
+  });
+
+  await course.save();
+
+  logSecurityEvent("lesson_updated", req.user.sub, ip(req), {
+    courseId: req.params.id,
+    lessonId: req.params.lessonId,
+  });
+
+  res.status(200).json({ message: "Lesson updated", course });
+};
+
+// ── DELETE /api/admin/courses/:id/lessons/:lessonId ──────────────────────────
+export const deleteLesson = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  if (!req.user) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+
+  const course = await Course.findById(req.params.id);
+  if (!course) {
+    res.status(404).json({ error: "Course not found" });
+    return;
+  }
+
+  const lesson = course.lessons.id(req.params.lessonId);
+  if (!lesson) {
+    res.status(404).json({ error: "Lesson not found" });
+    return;
+  }
+
+  lesson.deleteOne();
+
+  // Re-sequence remaining lessons' `order` so there are no gaps
+  course.lessons
+    .sort((a, b) => a.order - b.order)
+    .forEach((l, idx) => {
+      l.order = idx + 1;
+    });
+
+  await course.save();
+
+  logSecurityEvent("lesson_deleted", req.user.sub, ip(req), {
+    courseId: req.params.id,
+    lessonId: req.params.lessonId,
+  });
+
+  res.status(200).json({ message: "Lesson deleted", course });
+};
+
+// ── PATCH /api/admin/courses/:id/lessons/reorder ─────────────────────────────
+export const reorderLessons = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  if (!req.user) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+
+  const { lessonIds } = req.body as { lessonIds: string[] };
+  if (!Array.isArray(lessonIds) || lessonIds.length === 0) {
+    res.status(400).json({ error: "lessonIds array is required" });
+    return;
+  }
+
+  const course = await Course.findById(req.params.id);
+  if (!course) {
+    res.status(404).json({ error: "Course not found" });
+    return;
+  }
+
+  // Only reorder lessons that actually belong to this course
+  const validIds = new Set(course.lessons.map((l) => l._id.toString()));
+  const filtered = lessonIds.filter((id) => validIds.has(id));
+
+  filtered.forEach((id, idx) => {
+    const lesson = course.lessons.id(id);
+    if (lesson) lesson.order = idx + 1;
+  });
+
+  await course.save();
+
+  logSecurityEvent("lessons_reordered", req.user.sub, ip(req), {
+    courseId: req.params.id,
+  });
+
+  res.status(200).json({ message: "Lessons reordered", course });
 };
 
 // ── GET /api/admin/courses ───────────────────────────────────────────────────

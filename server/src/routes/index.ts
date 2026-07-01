@@ -5,9 +5,12 @@ import {
   adminListCourses,
   createCourse,
   deleteCourse,
+  deleteLesson,
   getCourse,
   listCourses,
+  reorderLessons,
   updateCourse,
+  updateLesson,
 } from "../controllers/course.controller";
 import {
   changePassword,
@@ -131,5 +134,28 @@ adminRouter.post(
   [param("id").isMongoId(), body("title").notEmpty()],
   validateRequest,
   addLesson,
+);
+// Must be registered before the /:lessonId route below so "reorder" isn't
+// swallowed as a lessonId param.
+adminRouter.patch(
+  "/courses/:id/lessons/reorder",
+  [
+    param("id").isMongoId(),
+    body("lessonIds").isArray({ min: 1 }).withMessage("lessonIds required"),
+  ],
+  validateRequest,
+  reorderLessons,
+);
+adminRouter.patch(
+  "/courses/:id/lessons/:lessonId",
+  [param("id").isMongoId(), param("lessonId").isMongoId()],
+  validateRequest,
+  updateLesson,
+);
+adminRouter.delete(
+  "/courses/:id/lessons/:lessonId",
+  [param("id").isMongoId(), param("lessonId").isMongoId()],
+  validateRequest,
+  deleteLesson,
 );
 adminRouter.get("/transactions", adminListTransactions);
