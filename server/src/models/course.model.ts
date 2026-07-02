@@ -1,6 +1,5 @@
 import mongoose, { Document, Schema, Model, Types } from "mongoose";
 
-// ILesson must extend Document so Mongoose subdoc methods (.toObject etc.) are available
 export interface ILesson extends Document {
   _id: Types.ObjectId;
   title: string;

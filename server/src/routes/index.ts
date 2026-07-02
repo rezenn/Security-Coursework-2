@@ -114,9 +114,6 @@ paymentRouter.post(
   completePaymentIntentHandler,
 );
 
-// Raw body for Stripe signature verification is parsed in server.ts
-// (express.raw() on this exact path, registered before express.json()).
-// req.body here is already a Buffer by the time this route handler runs.
 paymentRouter.post("/webhook", stripeWebhook);
 
 paymentRouter.get("/my-transactions", requireAuth, myTransactions);

@@ -23,9 +23,7 @@ export const requireAuth = (
   }
 };
 
-// Attaches req.user if a valid bearer token is present, but never rejects
-// the request — used on routes that are public but render differently for
-// authenticated/enrolled users (e.g. course detail with gated lesson content).
+
 export const optionalAuth = (
   req: Request,
   _res: Response,

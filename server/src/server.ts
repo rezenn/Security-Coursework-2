@@ -40,10 +40,6 @@ app.use(
           "'self'",
           "https://js.stripe.com",
           "https://www.google.com",
-          // YouTube IFrame Player API — needed for the custom video
-          // controls (play/pause, ±10s skip, seek bar) in the course
-          // player, which requires postMessage control over the embed
-          // rather than a static iframe src.
           "https://www.youtube.com",
         ],
         styleSrc: ["'self'", "'unsafe-inline'"],
@@ -83,13 +79,6 @@ app.use(
   }),
 );
 
-// ── Stripe webhook needs the RAW, UNPARSED body for signature verification.
-// express.raw() MUST run on this exact path before express.json() ever
-// touches the request stream — a request body can only be consumed once.
-// This is registered here, ahead of the global JSON parser, specifically
-// because the previous approach (a manual req.on('data') handler inside
-// routes/index.ts, running after express.json() below) was reading from an
-// already-drained stream — Stripe's signature check failed on every event.
 app.use(
   "/api/payments/webhook",
   express.raw({ type: "application/json", limit: "1mb" }),
@@ -107,10 +96,7 @@ app.use(cookieParser(config.cookie.secret));
 app.use(issueCsrfToken);
 app.use(verifyCsrfToken);
 
-// ── HTTP Parameter Pollution + NoSQL injection prevention ─────────────────────
-// Skipped for the webhook route: req.body there is a raw Buffer (see above),
-// not parsed JSON — these libraries assume a plain object and would either
-// throw or mangle the Buffer before signature verification runs.
+
 app.use((req: Request, res: Response, next: NextFunction) => {
   if (req.path === "/api/payments/webhook") return next();
   hpp()(req, res, next);
@@ -190,10 +176,7 @@ app.use(errorHandler);
 // ── Bootstrap ─────────────────────────────────────────────────────────────────
 const validateConfig = (): void => {
   const missing: string[] = [];
-  // These are required in every environment: a missing publishable key
-  // doesn't crash the server, it silently breaks payment on the client
-  // (loadStripe("") fails and the Payment Element never mounts), so we
-  // fail fast at boot instead of failing invisibly at checkout time.
+
   if (!config.stripe.secretKey) missing.push("STRIPE_SECRET_KEY");
   if (!config.stripe.publishableKey) missing.push("STRIPE_PUBLISHABLE_KEY");
   if (missing.length) {
