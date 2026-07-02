@@ -54,7 +54,7 @@ export default function DashboardPage() {
             day: "numeric",
           })}
         </p>
-        <h1 className="text-2xl font-bold text-white">
+        <h1 className="text-2xl font-bold text-white capitalize">
           Good {getGreeting()}, {displayName}
         </h1>
       </div>

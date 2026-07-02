@@ -92,16 +92,16 @@ export function AppSidebar() {
           href={isAdmin ? "/admin" : "/dashboard"}
           className="flex items-center gap-2.5"
         >
-          <div className="relative w-8 h-8 rounded-lg overflow-hidden shadow-lg">
-            <Image
-              src="/images/logo.jpg"
-              alt="GyanKosh Logo"
-              width={32}
-              height={32}
-              className="object-cover w-full h-full"
-              priority
-            />
-          </div>
+         <div className="relative w-8 h-8 rounded-lg overflow-hidden shadow-lg">
+                       <Image
+                         src="/images/logo.jpg"
+                         alt="GyanKosh Logo"
+                         width={32}
+                         height={32}
+                         className="object-cover w-full h-full"
+                         priority
+                       />
+                     </div>
           <span className="font-bold text-white text-base">GyanKosh</span>
         </Link>
         {isAdmin && (

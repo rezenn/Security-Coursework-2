@@ -10,20 +10,16 @@ import {
   Avatar,
   RoleBadge,
 } from "@/components/shared";
-import {
-  User,
-  Key,
-  Download,
-  ShieldCheck,
-  Calendar,
-  Camera,
-} from "lucide-react";
+import { User, Key, Camera, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
-import Link from "next/link";
 import { PasswordStrengthMeter } from "@/components/ui/PasswordStrengthMeter";
 import { validatePasswordPolicy } from "@/lib/utils/password";
 
-export default function ProfilePage() {
+// Admin's own editable profile (name, email display, avatar, password).
+// Reuses the same generic /api/profile endpoints the student-facing
+// /profile page uses — an admin is just a User with role: "admin", so
+// no separate backend route is needed for this.
+export default function AdminProfilePage() {
   const { user: authUser, loading: authLoading } = useRequireAuth();
   const { refreshUser } = useAuth();
   const [profile, setProfile] = useState<any>(null);
@@ -33,12 +29,10 @@ export default function ProfilePage() {
   const [success, setSuccess] = useState("");
   const [avatarUploading, setAvatarUploading] = useState(false);
 
-  // Profile form state
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [bio, setBio] = useState("");
 
-  // Password form
   const [currentPw, setCurrentPw] = useState("");
   const [newPw, setNewPw] = useState("");
   const [confirmPw, setConfirmPw] = useState("");
@@ -125,47 +119,20 @@ export default function ProfilePage() {
     }
   };
 
-  const handleExport = async () => {
-    try {
-      const res = await profileApi.export();
-      const url = URL.createObjectURL(
-        new Blob([JSON.stringify(res.data, null, 2)], {
-          type: "application/json",
-        }),
-      );
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "gyankosh-profile.json";
-      a.click();
-      URL.revokeObjectURL(url);
-      toast.success("Profile exported!");
-    } catch {
-      toast.error("Export failed");
-    }
-  };
-
   if (authLoading || fetching) return <PageLoader />;
-
-  const pwExpiry = profile?.passwordExpiresAt
-    ? new Date(profile.passwordExpiresAt)
-    : null;
-  const pwDaysLeft = pwExpiry
-    ? Math.ceil((pwExpiry.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
-    : null;
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-white">My Profile</h1>
-        <RoleBadge role={authUser?.role || "user"} />
+        <h1 className="text-2xl font-bold text-white">Admin Profile</h1>
+        <RoleBadge role={authUser?.role || "admin"} />
       </div>
 
-      {/* Profile info card */}
       <div className="card">
         <div className="flex items-center gap-4 mb-6">
           <div className="relative group">
             <Avatar
-              name={profile?.username || "U"}
+              name={profile?.username || "A"}
               size="lg"
               imageUrl={profile?.profile?.avatarUrl}
             />
@@ -190,7 +157,7 @@ export default function ProfilePage() {
             />
           </div>
           <div>
-            <p className="text-lg font-semibold text-white capitalize">
+            <p className="text-lg font-semibold text-white">
               {profile?.username}
             </p>
             <p className="text-slate-400 text-sm">{profile?.email}</p>
@@ -201,18 +168,6 @@ export default function ProfilePage() {
             )}
           </div>
         </div>
-
-        {/* Password expiry warning */}
-        {pwDaysLeft !== null && pwDaysLeft <= 14 && (
-          <div
-            className={`mb-4 rounded-lg px-4 py-3 text-sm border ${pwDaysLeft <= 3 ? "bg-red-500/10 border-red-500/30 text-red-400" : "bg-yellow-500/10 border-yellow-500/30 text-yellow-400"}`}
-          >
-            <Calendar size={14} className="inline mr-1.5" />
-            {pwDaysLeft <= 0
-              ? "Your password has expired. Please change it now."
-              : `Password expires in ${pwDaysLeft} days.`}
-          </div>
-        )}
 
         {error && (
           <div className="mb-4">
@@ -270,7 +225,6 @@ export default function ProfilePage() {
         </form>
       </div>
 
-      {/* Change password */}
       <div className="card">
         <h2 className="text-base font-semibold text-white mb-4 flex items-center gap-2">
           <Key size={16} className="text-blue-400" /> Change Password
@@ -330,41 +284,6 @@ export default function ProfilePage() {
             <Key size={16} /> {pwSaving ? "Changing..." : "Change Password"}
           </button>
         </form>
-      </div>
-
-      {/* Security & MFA */}
-      {!profile?.mfa?.enabled && (
-        <div className="card border-yellow-500/30">
-          <h2 className="text-base font-semibold text-white mb-2 flex items-center gap-2">
-            <ShieldCheck size={16} className="text-yellow-400" /> Two-Factor
-            Authentication
-          </h2>
-          <p className="text-slate-400 text-sm mb-4">
-            Add an extra layer of security to your account.
-          </p>
-          <Link
-            href="/mfa-setup"
-            className="btn-primary inline-flex items-center gap-2"
-          >
-            <ShieldCheck size={16} /> Enable MFA
-          </Link>
-        </div>
-      )}
-
-      {/* Data export */}
-      <div className="card">
-        <h2 className="text-base font-semibold text-white mb-2 flex items-center gap-2">
-          <Download size={16} className="text-blue-400" /> Data Export
-        </h2>
-        <p className="text-slate-400 text-sm mb-4">
-          Download all data associated with your account (GDPR-compliant).
-        </p>
-        <button
-          onClick={handleExport}
-          className="btn-secondary flex items-center gap-2"
-        >
-          <Download size={16} /> Export My Data
-        </button>
       </div>
     </div>
   );

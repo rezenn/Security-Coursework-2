@@ -10,6 +10,10 @@ const inter = Inter({ subsets: ["latin"] });
 export const metadata: Metadata = {
   title: "GyanKosh — Learn Securely",
   description: "A secure online learning platform",
+  icons: {
+    icon: [{ url: "/images/logo.jpg", sizes: "32x32",  type: "image/jpg" }],
+    apple: [{ url: "/images/logo.jpg", sizes: "180x180", type: "image/jpg" }],
+  },
 };
 
 export default function RootLayout({
