@@ -23,6 +23,7 @@ import {
 import {
   adminListTransactions,
   completeCheckout,
+  completePaymentIntentHandler,
   createCheckoutSession,
   myTransactions,
   stripeWebhook,
@@ -108,6 +109,17 @@ paymentRouter.post(
   [body("sessionId").notEmpty().withMessage("sessionId is required")],
   validateRequest,
   completeCheckout,
+);
+paymentRouter.post(
+  "/complete-payment-intent",
+  requireAuth,
+  [
+    body("paymentIntentId")
+      .notEmpty()
+      .withMessage("paymentIntentId is required"),
+  ],
+  validateRequest,
+  completePaymentIntentHandler,
 );
 
 // Raw body for Stripe signature verification is parsed in server.ts

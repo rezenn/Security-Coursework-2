@@ -130,19 +130,24 @@ export function AppSidebar() {
       {/* User section */}
       {user && (
         <div className="px-3 py-4 border-t border-slate-700">
-          <div className="flex items-center gap-2.5 mb-3 px-2">
-            <Avatar
-              name={user.username}
-              size="sm"
-              imageUrl={user.profile?.avatarUrl}
-            />
-            <div className="min-w-0 flex-1">
-              <p className="text-xs font-medium text-white truncate">
-                {user.username}
-              </p>
-              <RoleBadge role={user.role} />
+          <Link
+            href="/profile"
+            className="flex items-center gap-2.5 mb-3 px-2 py-1.5 rounded-lg hover:bg-slate-700/50 transition-colors group"
+          >
+            <div className="flex items-center gap-2.5 mb-3 px-2">
+              <Avatar
+                name={user.username}
+                size="sm"
+                imageUrl={user.profile?.avatarUrl}
+              />
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-medium text-white truncate">
+                  {user.username}
+                </p>
+                <RoleBadge role={user.role} />
+              </div>
             </div>
-          </div>
+          </Link>
           <button
             onClick={() => setShowLogoutModal(true)}
             className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs text-slate-400 hover:text-red-400 hover:bg-red-500/8 transition-colors"

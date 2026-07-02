@@ -3,9 +3,13 @@ import { Loader2 } from "lucide-react";
 import clsx from "clsx";
 
 // ── Spinner ────────────────────────────────────────────────────────────────────
-export const Spinner = ({ size = 20, className }: { size?: number; className?: string }) => (
-  <Loader2 size={size} className={clsx("animate-spin", className)} />
-);
+export const Spinner = ({
+  size = 20,
+  className,
+}: {
+  size?: number;
+  className?: string;
+}) => <Loader2 size={size} className={clsx("animate-spin", className)} />;
 
 // ── Full-page loader ───────────────────────────────────────────────────────────
 export const PageLoader = () => (
@@ -38,19 +42,36 @@ export const Avatar = ({
   size?: "sm" | "md" | "lg";
   imageUrl?: string | null;
 }) => {
-  const sizes = { sm: "w-8 h-8 text-xs", md: "w-10 h-10 text-sm", lg: "w-16 h-16 text-xl" };
-  const initials = name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase();
+  const sizes = {
+    sm: "w-8 h-8 text-xs",
+    md: "w-10 h-10 text-sm",
+    lg: "w-16 h-16 text-xl",
+  };
+  const initials = name
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
   if (imageUrl) {
     return (
       <img
         src={imageUrl}
         alt={name}
-        className={clsx("rounded-full object-cover flex-shrink-0 bg-slate-700", sizes[size])}
+        className={clsx(
+          "rounded-full object-cover flex-shrink-0 bg-slate-700",
+          sizes[size],
+        )}
       />
     );
   }
   return (
-    <div className={clsx("rounded-full bg-blue-600 flex items-center justify-center font-bold text-white flex-shrink-0", sizes[size])}>
+    <div
+      className={clsx(
+        "rounded-full bg-blue-600 flex items-center justify-center font-bold text-white flex-shrink-0",
+        sizes[size],
+      )}
+    >
       {initials}
     </div>
   );
@@ -65,12 +86,20 @@ export const RoleBadge = ({ role }: { role: string }) => (
 
 // ── Stat card ──────────────────────────────────────────────────────────────────
 export const StatCard = ({
-  label, value, icon, color = "blue",
+  label,
+  value,
+  icon,
+  color = "blue",
 }: {
-  label: string; value: string | number; icon: React.ReactNode; color?: string;
+  label: string;
+  value: string | number;
+  icon: React.ReactNode;
+  color?: string;
 }) => (
   <div className="card flex items-center gap-4">
-    <div className={`w-12 h-12 rounded-xl bg-${color}-600/20 flex items-center justify-center text-${color}-400 flex-shrink-0`}>
+    <div
+      className={`w-12 h-12 rounded-xl bg-${color}-600/20 flex items-center justify-center text-${color}-400 flex-shrink-0`}
+    >
       {icon}
     </div>
     <div>
@@ -81,9 +110,24 @@ export const StatCard = ({
 );
 
 // ── Empty state ────────────────────────────────────────────────────────────────
-export const EmptyState = ({ message, icon }: { message: string; icon?: React.ReactNode }) => (
+export const EmptyState = ({
+  message,
+  icon,
+  title,
+  description,
+}: {
+  message?: string;
+  icon?: React.ReactNode;
+  title?: string;
+  description?: string;
+}) => (
   <div className="flex flex-col items-center justify-center py-16 text-slate-500">
     {icon && <div className="mb-3 text-slate-600">{icon}</div>}
-    <p className="text-sm">{message}</p>
+    <p className="text-sm font-medium text-white">{title || message}</p>
+    {description && (
+      <p className="text-xs text-slate-400 mt-1 max-w-md text-center">
+        {description}
+      </p>
+    )}
   </div>
 );

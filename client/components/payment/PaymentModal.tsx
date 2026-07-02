@@ -59,7 +59,7 @@ interface InnerFormProps {
   amountCents: number;
   isFree: boolean;
   isProcessing: boolean;
-  onSuccess: () => void;
+  onSuccess: (paymentIntentId: string) => void;
   onError: (msg: string) => void;
   onProcessing: (v: boolean) => void;
 }
@@ -93,7 +93,7 @@ function PaymentForm({
     setIsSubmitting(true);
     onProcessing(true);
 
-    const { error } = await stripe.confirmPayment({
+    const { error, paymentIntent } = await stripe.confirmPayment({
       elements,
       redirect: "if_required",
     });
@@ -106,7 +106,7 @@ function PaymentForm({
     }
 
     // No error + redirect: "if_required" means payment succeeded in-page
-    onSuccess();
+    onSuccess(paymentIntent?.id ?? "");
     setIsSubmitting(false);
     onProcessing(false);
   }, [stripe, elements, isElementReady, onSuccess, onError, onProcessing]);
@@ -272,12 +272,53 @@ export function PaymentModal({
     }
   }, [user, courseId, refreshUser, onSuccess]);
 
-  const handlePaymentSuccess = useCallback(async () => {
-    setState("success");
-    await refreshUser();
-    toast.success("🎉 Payment successful! You are now enrolled.");
-    onSuccess?.();
-  }, [refreshUser, onSuccess]);
+  const handlePaymentSuccess = useCallback(
+    async (paymentIntentId: string) => {
+      // This is the fix for enrollment/revenue silently staying "pending"
+      // after a successful card payment: previously this only updated
+      // local UI state and relied entirely on the payment_intent.succeeded
+      // webhook to mark the transaction "completed" server-side. If that
+      // webhook is slow, misconfigured, or never arrives, the user saw a
+      // false "Enrolled!" while the database stayed pending forever. Now
+      // we explicitly ask the backend to finalize using the PaymentIntent
+      // id Stripe just gave us — the webhook can still also do it (the
+      // service treats a second call as a no-op), this is just a
+      // guaranteed fallback that doesn't depend on webhook delivery.
+      if (paymentIntentId) {
+        const maxAttempts = 3;
+        let finalized = false;
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+          try {
+            await paymentApi.completePaymentIntent(paymentIntentId);
+            finalized = true;
+            break;
+          } catch (err: any) {
+            if (attempt < maxAttempts) {
+              await new Promise((r) => setTimeout(r, attempt * 800));
+            } else {
+              // eslint-disable-next-line no-console
+              console.error(
+                "Failed to finalize payment server-side after retries",
+                err,
+              );
+            }
+          }
+        }
+        if (!finalized) {
+          toast.error(
+            "Payment succeeded, but we couldn't confirm enrollment yet. Refresh in a moment — if it's still missing, contact support with this ID: " +
+              paymentIntentId,
+          );
+        }
+      }
+
+      setState("success");
+      await refreshUser();
+      toast.success("🎉 Payment successful! You are now enrolled.");
+      onSuccess?.();
+    },
+    [refreshUser, onSuccess],
+  );
 
   const handlePaymentError = useCallback((msg: string) => {
     setErrorMsg(msg);

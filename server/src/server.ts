@@ -40,6 +40,11 @@ app.use(
           "'self'",
           "https://js.stripe.com",
           "https://www.google.com",
+          // YouTube IFrame Player API — needed for the custom video
+          // controls (play/pause, ±10s skip, seek bar) in the course
+          // player, which requires postMessage control over the embed
+          // rather than a static iframe src.
+          "https://www.youtube.com",
         ],
         styleSrc: ["'self'", "'unsafe-inline'"],
         imgSrc: ["'self'", "data:", "https:"],
@@ -53,6 +58,8 @@ app.use(
           "https://hooks.stripe.com",
           "https://m.stripe.network",
           "https://www.google.com",
+          "https://www.youtube.com",
+          "https://www.youtube-nocookie.com",
         ],
       },
     },

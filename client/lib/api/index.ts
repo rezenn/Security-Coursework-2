@@ -82,6 +82,10 @@ export const paymentApi = {
     ),
   completeCheckout: (sessionId: string) =>
     api.post(API.PAYMENTS.COMPLETE_CHECKOUT, { sessionId }).then((r) => r.data),
+  completePaymentIntent: (paymentIntentId: string) =>
+    api
+      .post(API.PAYMENTS.COMPLETE_PAYMENT_INTENT, { paymentIntentId })
+      .then((r) => r.data),
   myTransactions: () =>
     api.get(API.PAYMENTS.MY_TRANSACTIONS).then((r) => r.data),
 };

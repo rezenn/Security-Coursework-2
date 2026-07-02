@@ -761,6 +761,72 @@ const handlePaymentIntentSucceeded = async (
   });
 };
 
+// ── Finalize a PaymentIntent from the client, as a fallback when the
+// webhook hasn't landed yet (or at all — e.g. STRIPE_WEBHOOK_SECRET
+// misconfigured, endpoint unreachable in dev, delivery delay). The
+// Payment Element flow (unlike hosted Checkout) previously had NO
+// server confirmation step after stripe.confirmPayment() resolved on
+// the client — the frontend just showed "success" locally while the
+// transaction silently stayed "pending" until the webhook (if it ever
+// arrived) caught up. This closes that gap the same way
+// completeCheckoutSession does for the hosted-Checkout flow.
+//
+// Safe to call even if the webhook wins the race: handlePaymentIntentSucceeded
+// only matches transactions with status "pending", so a second call
+// (whichever arrives second, this one or the webhook) is a no-op.
+export const completePaymentIntent = async (
+  userId: string,
+  paymentIntentId: string,
+): Promise<{ courseId: string }> => {
+  if (!paymentIntentId || typeof paymentIntentId !== "string") {
+    throw new Error("TRANSACTION_NOT_FOUND");
+  }
+
+  const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+
+  if (!paymentIntent || paymentIntent.id !== paymentIntentId) {
+    throw new Error("TRANSACTION_NOT_FOUND");
+  }
+
+  const metadataUserId = (paymentIntent.metadata as { userId?: string } | null)
+    ?.userId;
+  if (metadataUserId && metadataUserId !== userId) {
+    logger.warn("PaymentIntent user mismatch on client-side finalize", {
+      paymentIntentId,
+      expectedUserId: userId,
+      metadataUserId,
+    });
+    throw new Error("USER_MISMATCH");
+  }
+
+  const txn = await Transaction.findOne({
+    stripePaymentIntentId: paymentIntentId,
+    user: userId,
+  });
+  if (!txn) {
+    throw new Error("TRANSACTION_NOT_FOUND");
+  }
+
+  if (txn.status === "completed") {
+    return { courseId: txn.course.toString() };
+  }
+
+  if (paymentIntent.status !== "succeeded") {
+    logger.warn(
+      "Client-side finalize attempted before PaymentIntent succeeded",
+      {
+        paymentIntentId,
+        status: paymentIntent.status,
+      },
+    );
+    throw new Error("SESSION_NOT_PAID");
+  }
+
+  await handlePaymentIntentSucceeded(paymentIntent);
+  const updated = await Transaction.findById(txn._id);
+  return { courseId: (updated ?? txn).course.toString() };
+};
+
 // ── Get user's transactions ──────────────────────────────────────────────────
 export const getUserTransactions = async (userId: string) => {
   return Transaction.find({ user: userId })

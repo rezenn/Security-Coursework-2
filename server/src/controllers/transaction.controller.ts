@@ -3,6 +3,7 @@ import {
   createStripeCheckoutSession,
   handleStripeWebhook,
   completeCheckoutSession,
+  completePaymentIntent,
   getUserTransactions,
   getAllTransactions,
 } from "../services/transaction.service";
@@ -92,6 +93,48 @@ export const stripeWebhook = async (
     ];
 
     logSecurityEvent("webhook_failed", null, ip(req), { error: err.message });
+    res.status(status).json({ error: message });
+  }
+};
+
+// POST /api/payments/complete-payment-intent
+// Fallback finalizer for the in-page Payment Element flow, called by the
+// client right after stripe.confirmPayment() resolves. See
+// completePaymentIntent in transaction.service for why this exists.
+export const completePaymentIntentHandler = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  if (!req.user) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+
+  const { paymentIntentId } = req.body;
+  if (!paymentIntentId || typeof paymentIntentId !== "string") {
+    res.status(400).json({ error: "paymentIntentId is required" });
+    return;
+  }
+
+  try {
+    const result = await completePaymentIntent(req.user.sub, paymentIntentId);
+    res
+      .status(200)
+      .json({ message: "Payment finalized", courseId: result.courseId });
+  } catch (err: any) {
+    const msgMap: Record<string, [number, string]> = {
+      SESSION_NOT_PAID: [400, "Payment has not completed yet."],
+      TRANSACTION_NOT_FOUND: [404, "Transaction not found."],
+      USER_MISMATCH: [403, "Payment does not belong to this user."],
+    };
+    const [status, message] = msgMap[err.message] || [
+      500,
+      "Payment finalization failed.",
+    ];
+    logSecurityEvent("payment_finalize_failed", req.user.sub, ip(req), {
+      error: err.message,
+      paymentIntentId,
+    });
     res.status(status).json({ error: message });
   }
 };

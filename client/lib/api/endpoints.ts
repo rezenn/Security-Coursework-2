@@ -30,6 +30,7 @@ export const API = {
     CREATE_CHECKOUT: "/payments/create-checkout",
     MY_TRANSACTIONS: "/payments/my-transactions",
     COMPLETE_CHECKOUT: "/payments/complete-checkout",
+    COMPLETE_PAYMENT_INTENT: "/payments/complete-payment-intent",
   },
   ADMIN: {
     STATS: "/admin/stats",

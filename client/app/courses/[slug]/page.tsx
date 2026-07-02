@@ -5,6 +5,7 @@ import { courseApi } from "@/lib/api";
 import { useAuth } from "@/context/authContext";
 import { AppSidebar } from "@/components/shared/Sidebar";
 import { PaymentModal } from "@/components/payment/PaymentModal";
+import { YoutubePlayer } from "@/components/course/YoutubePlayer";
 import { Spinner } from "@/components/shared";
 import {
   BookOpen,
@@ -98,18 +99,16 @@ export default function CourseDetailPage() {
   const totalHours = Math.floor(totalDuration / 60);
   const totalMins = totalDuration % 60;
 
-  const getYoutubeEmbedUrl = (url: string): string | null => {
+  const getYoutubeVideoId = (url: string): string | null => {
     if (!url) return null;
     const match = url.match(
       /(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/,
     );
-    return match?.[1]
-      ? `https://www.youtube.com/embed/${match[1]}?rel=0&modestbranding=1`
-      : null;
+    return match?.[1] ?? null;
   };
 
-  const activeLessonEmbedUrl =
-    activeLesson?.videoUrl && getYoutubeEmbedUrl(activeLesson.videoUrl);
+  const activeLessonVideoId =
+    activeLesson?.videoUrl && getYoutubeVideoId(activeLesson.videoUrl);
 
   return (
     <div className="flex h-screen overflow-hidden bg-slate-900">
@@ -314,14 +313,11 @@ export default function CourseDetailPage() {
               {activeLesson.videoUrl ? (
                 <div className="mb-6">
                   <div className="w-full aspect-video bg-slate-900 rounded-2xl overflow-hidden border border-slate-700">
-                    {activeLessonEmbedUrl ? (
-                      <iframe
-                        src={activeLessonEmbedUrl}
+                    {activeLessonVideoId ? (
+                      <YoutubePlayer
+                        key={activeLessonVideoId}
+                        videoId={activeLessonVideoId}
                         title={`Video for ${activeLesson.title}`}
-                        frameBorder="0"
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                        allowFullScreen
-                        className="w-full h-full"
                       />
                     ) : (
                       <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 p-6 text-center">
