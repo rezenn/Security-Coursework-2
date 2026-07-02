@@ -388,9 +388,6 @@ export const createStripePaymentIntent = async (
     };
   }
 
-  // NPR — Stripe requires amounts in paisa (1 NPR = 100 paisa), same
-  // scaling as USD cents. priceCents in the DB is stored as the smallest
-  // currency unit already, so the value is correct; we just change currency.
   const paymentIntent = await stripe.paymentIntents.create({
     amount: amountCents,
     currency: "npr",
@@ -401,9 +398,6 @@ export const createStripePaymentIntent = async (
       timestamp,
       signature,
     },
-    // allow_redirects: "never" keeps the Payment Element fully in-page.
-    // Stripe will only offer payment methods that don't require browser
-    // redirects (card, etc.), which is what we want for the modal UX.
     automatic_payment_methods: {
       enabled: true,
       allow_redirects: "never",
@@ -434,13 +428,6 @@ export const createStripePaymentIntent = async (
     currency: "npr",
   };
 };
-
-// NOTE: An older `createStripeCheckoutSession` (redirect-based Stripe
-// Checkout) used to live here. It was never called anywhere — the app
-// switched to the in-page PaymentIntent + Payment Element flow above — and
-// it still hardcoded "usd"/"USD" against an NPR-only schema, so it was
-// removed rather than fixed. If a hosted-redirect checkout is ever needed
-// again, rebuild it against createStripePaymentIntent's NPR conventions.
 
 // ── Handle Stripe Webhook ────────────────────────────────────────────────────
 export const handleStripeWebhook = async (
@@ -761,19 +748,6 @@ const handlePaymentIntentSucceeded = async (
   });
 };
 
-// ── Finalize a PaymentIntent from the client, as a fallback when the
-// webhook hasn't landed yet (or at all — e.g. STRIPE_WEBHOOK_SECRET
-// misconfigured, endpoint unreachable in dev, delivery delay). The
-// Payment Element flow (unlike hosted Checkout) previously had NO
-// server confirmation step after stripe.confirmPayment() resolved on
-// the client — the frontend just showed "success" locally while the
-// transaction silently stayed "pending" until the webhook (if it ever
-// arrived) caught up. This closes that gap the same way
-// completeCheckoutSession does for the hosted-Checkout flow.
-//
-// Safe to call even if the webhook wins the race: handlePaymentIntentSucceeded
-// only matches transactions with status "pending", so a second call
-// (whichever arrives second, this one or the webhook) is a no-op.
 export const completePaymentIntent = async (
   userId: string,
   paymentIntentId: string,
