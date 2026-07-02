@@ -160,7 +160,7 @@ function PaymentForm({
           onReady={() => setIsElementReady(true)}
           options={{
             layout: { type: "tabs", defaultCollapsed: false },
-            fields: { billingDetails: { address: "never" } },
+            fields: { billingDetails: { address: "auto" } },
           }}
         />
       </div>
@@ -250,12 +250,6 @@ export function PaymentModal({
         await refreshUser();
         toast.success("🎉 Enrolled successfully!");
         onSuccess?.();
-        return;
-      }
-
-      if (data.checkoutUrl) {
-        setState("loading");
-        window.location.assign(data.checkoutUrl);
         return;
       }
 

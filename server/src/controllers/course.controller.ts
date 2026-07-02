@@ -70,16 +70,14 @@ export const getCourse = async (req: Request, res: Response): Promise<void> => {
       ) ?? false;
   }
 
-  // Non-enrolled users only see free preview lessons (video URL stripped)
+  // Non-enrolled users only see free preview lessons — but the whole point
+  // of a "free preview" is that its video IS playable, so unlike paid
+  // lessons (which are excluded entirely by the filter below) we must NOT
+  // strip the videoUrl here. Stripping it made every free lesson look
+  // available but silently unwatchable.
   const lessons = isEnrolled
     ? course.lessons.map((l) => l.toObject())
-    : course.lessons
-        .filter((l) => l.isFree)
-        .map((l) => {
-          const obj = l.toObject();
-          obj.videoUrl = ""; // strip video URL for previews
-          return obj;
-        });
+    : course.lessons.filter((l) => l.isFree).map((l) => l.toObject());
 
   const courseData = course.toObject();
   courseData.lessons = lessons as any;

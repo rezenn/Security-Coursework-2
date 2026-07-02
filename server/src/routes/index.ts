@@ -22,7 +22,6 @@ import {
 } from "../controllers/profile.controller";
 import {
   adminListTransactions,
-  completeCheckout,
   completePaymentIntentHandler,
   createCheckoutSession,
   myTransactions,
@@ -102,13 +101,6 @@ paymentRouter.post(
   [body("courseId").isMongoId().withMessage("Valid courseId required")],
   validateRequest,
   createCheckoutSession,
-);
-paymentRouter.post(
-  "/complete-checkout",
-  requireAuth,
-  [body("sessionId").notEmpty().withMessage("sessionId is required")],
-  validateRequest,
-  completeCheckout,
 );
 paymentRouter.post(
   "/complete-payment-intent",

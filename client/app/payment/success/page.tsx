@@ -17,57 +17,16 @@ function PaymentSuccessInner() {
   const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    const completeCheckout = async () => {
-      if (sessionId) {
-        // Retry a few times: a 401 right after the redirect back from
-        // Stripe can just mean the access-token cookie hasn't been
-        // (re)hydrated yet, and the webhook can race this call too.
-        // Retrying gives both a chance to settle instead of silently
-        // leaving the transaction stuck "pending".
-        const maxAttempts = 3;
-        let lastError: any = null;
-
-        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-          try {
-            await paymentApi.completeCheckout(sessionId);
-            setMessage("Your course access was finalized successfully.");
-            lastError = null;
-            break;
-          } catch (err: any) {
-            lastError = err;
-            const httpStatus = err?.response?.status;
-            const code = err?.response?.data?.error;
-            if (httpStatus === 409 || code === "ALREADY_ENROLLED") {
-              setMessage("You're already enrolled in this course.");
-              lastError = null;
-              break;
-            }
-            if (attempt < maxAttempts) {
-              await new Promise((r) => setTimeout(r, attempt * 1000));
-            }
-          }
-        }
-
-        if (lastError) {
-          const serverMsg = lastError?.response?.data?.error;
-          setMessage(
-            serverMsg
-              ? `Payment succeeded, but enrollment could not be finalized: ${serverMsg}. Please refresh this page — if it still doesn't work, contact support with your session ID.`
-              : "Payment succeeded, but enrollment could not be finalized automatically. Please refresh the page or contact support.",
-          );
-          // eslint-disable-next-line no-console
-          console.error("completeCheckout failed after retries", lastError);
-        }
-      }
-
-      refreshUser()
-        .catch(() => {
-          /* ignore */
-        })
-        .finally(() => setStatus("success"));
-    };
-
-    completeCheckout();
+    // The app's only payment flow is now the in-modal Payment Element
+    // (PaymentModal + POST /payments/complete-payment-intent) — nothing
+    // redirects here with a session_id anymore, so there's no server call
+    // to make on this page. It's kept as a plain fallback landing in case
+    // something ever links here directly.
+    refreshUser()
+      .catch(() => {
+        /* ignore */
+      })
+      .finally(() => setStatus("success"));
   }, [refreshUser, sessionId]);
 
   return (

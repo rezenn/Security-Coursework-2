@@ -72,7 +72,6 @@ export const paymentApi = {
     api.post(API.PAYMENTS.CREATE_CHECKOUT, { courseId }).then(
       (r) =>
         r.data as {
-          checkoutUrl?: string;
           clientSecret: string;
           paymentIntentId: string;
           amountCents: number;
@@ -80,8 +79,6 @@ export const paymentApi = {
           publishableKey: string;
         },
     ),
-  completeCheckout: (sessionId: string) =>
-    api.post(API.PAYMENTS.COMPLETE_CHECKOUT, { sessionId }).then((r) => r.data),
   completePaymentIntent: (paymentIntentId: string) =>
     api
       .post(API.PAYMENTS.COMPLETE_PAYMENT_INTENT, { paymentIntentId })

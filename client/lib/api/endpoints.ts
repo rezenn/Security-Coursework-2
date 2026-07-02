@@ -29,7 +29,6 @@ export const API = {
     // so anything that pointed at it would 404 before Stripe was ever reached.
     CREATE_CHECKOUT: "/payments/create-checkout",
     MY_TRANSACTIONS: "/payments/my-transactions",
-    COMPLETE_CHECKOUT: "/payments/complete-checkout",
     COMPLETE_PAYMENT_INTENT: "/payments/complete-payment-intent",
   },
   ADMIN: {
