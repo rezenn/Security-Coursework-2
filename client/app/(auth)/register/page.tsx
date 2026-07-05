@@ -112,7 +112,7 @@ export default function RegisterPage() {
         "Account created! Check your email to verify before logging in.",
       );
       toast.success("Registration successful!");
-      setTimeout(() => router.push("/login"), 3000);
+      router.push(`/verify-email?email=${encodeURIComponent(data.email)}`);
     } catch (err: any) {
       setError(
         err?.response?.data?.error || "Registration failed. Please try again.",
@@ -246,7 +246,7 @@ export default function RegisterPage() {
             </span>
           </div>
         </div>
-        
+
         {/* Google Sign-Up */}
         <button
           onClick={handleGoogleRegister}

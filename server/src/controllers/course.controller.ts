@@ -6,6 +6,7 @@ import {
   courseThumbnailUrl,
   deleteUploadedFile,
 } from "../middleware/upload.middleware";
+import { safeSearchRegex } from "../utils/sanitize.utils";
 
 const ip = (req: Request) => req.ip || "unknown";
 
@@ -20,10 +21,11 @@ export const listCourses = async (
   if (category) filter.category = category;
   if (level) filter.level = level;
   if (search && typeof search === "string") {
+    const searchRegex = safeSearchRegex(search);
     filter.$or = [
-      { title: { $regex: search, $options: "i" } },
-      { description: { $regex: search, $options: "i" } },
-      { tags: { $in: [new RegExp(search, "i")] } },
+      { title: { $regex: searchRegex } },
+      { description: { $regex: searchRegex } },
+      { tags: { $in: [searchRegex] } },
     ];
   }
 

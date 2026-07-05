@@ -6,8 +6,6 @@ import { useAuth } from "@/context/authContext";
 import { paymentApi } from "@/lib/api";
 import Link from "next/link";
 
-// This page is a fallback landing for any redirect-based payment completion.
-// The primary Payment Element flow completes in-modal without navigating here.
 function PaymentSuccessInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -17,11 +15,6 @@ function PaymentSuccessInner() {
   const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    // The app's only payment flow is now the in-modal Payment Element
-    // (PaymentModal + POST /payments/complete-payment-intent) — nothing
-    // redirects here with a session_id anymore, so there's no server call
-    // to make on this page. It's kept as a plain fallback landing in case
-    // something ever links here directly.
     refreshUser()
       .catch(() => {
         /* ignore */

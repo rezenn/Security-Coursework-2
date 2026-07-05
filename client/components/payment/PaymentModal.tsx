@@ -118,11 +118,6 @@ function PaymentForm({
 
   return (
     <div className="space-y-4 relative">
-      {/* Processing overlay — the Payment Element stays mounted underneath
-          while stripe.confirmPayment() is in flight. Unmounting it mid-call
-          (as the old full-screen "processing" state used to do) is exactly
-          what throws Stripe's "elements should have a mounted Payment
-          Element" IntegrationError. */}
       {isProcessing && (
         <div className="absolute inset-0 z-10 bg-slate-800/90 backdrop-blur-sm rounded-xl flex flex-col items-center justify-center">
           <span className="inline-block w-8 h-8 border-2 border-blue-600/30 border-t-blue-500 rounded-full animate-spin mb-3" />
@@ -268,16 +263,6 @@ export function PaymentModal({
 
   const handlePaymentSuccess = useCallback(
     async (paymentIntentId: string) => {
-      // This is the fix for enrollment/revenue silently staying "pending"
-      // after a successful card payment: previously this only updated
-      // local UI state and relied entirely on the payment_intent.succeeded
-      // webhook to mark the transaction "completed" server-side. If that
-      // webhook is slow, misconfigured, or never arrives, the user saw a
-      // false "Enrolled!" while the database stayed pending forever. Now
-      // we explicitly ask the backend to finalize using the PaymentIntent
-      // id Stripe just gave us — the webhook can still also do it (the
-      // service treats a second call as a no-op), this is just a
-      // guaranteed fallback that doesn't depend on webhook delivery.
       if (paymentIntentId) {
         const maxAttempts = 3;
         let finalized = false;
@@ -410,13 +395,6 @@ export function PaymentModal({
             </div>
           )}
 
-          {/* READY / PROCESSING — Stripe Payment Element stays mounted across
-              both states. Previously "processing" was a separate render
-              branch that replaced this block entirely, unmounting the
-              Payment Element out from under an in-flight
-              stripe.confirmPayment() call — that's what produced the
-              "elements should have a mounted Payment Element" error and the
-              stuck "don't close this window" spinner with a failed toast. */}
           {(state === "ready" || state === "processing") &&
             clientSecret &&
             stripePromise && (

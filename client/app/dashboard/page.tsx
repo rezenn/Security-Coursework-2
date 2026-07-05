@@ -109,7 +109,7 @@ export default function DashboardPage() {
             </div>
           </div>
           <p className="text-2xl font-bold text-white">
-            ${(totalSpentCents / 100).toFixed(2)}
+            Rs. {(totalSpentCents / 100).toFixed(2)}
           </p>
           <p className="text-xs text-slate-500 mt-0.5">via Stripe</p>
         </div>
