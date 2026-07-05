@@ -64,9 +64,33 @@ app.use(
 );
 
 // ── CORS ──────────────────────────────────────────────────────────────────────
+// CWE-942 (Permissive Cross-domain Policy): a static `origin: true`, a `*`
+// wildcard, or "reflect back whatever Origin the browser sent" would all
+// let *any* website read authenticated responses from this API (since
+// credentials: true also sends cookies). We validate the incoming Origin
+// against an explicit allow-list and only echo it back if it matches —
+// every other origin gets no Access-Control-Allow-Origin header at all,
+// so the browser's same-origin policy blocks the response from being read.
+const isAllowedOrigin = (origin: string | undefined): boolean => {
+  // Same-origin requests (curl, server-to-server, Postman) send no Origin
+  // header at all — allow those through; browsers always send Origin for
+  // cross-origin fetch/XHR, so this doesn't weaken the browser-facing check.
+  if (!origin) return true;
+  return config.allowedOrigins.includes(origin);
+};
+
 app.use(
   cors({
-    origin: config.frontendUrl,
+    origin: (origin, callback) => {
+      if (isAllowedOrigin(origin)) {
+        callback(null, true);
+        return;
+      }
+      logSecurityEvent("cors_origin_rejected", "unknown", "unknown", {
+        origin,
+      });
+      callback(new Error("Not allowed by CORS"));
+    },
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
     allowedHeaders: [
@@ -95,7 +119,6 @@ app.use(cookieParser(config.cookie.secret));
 // ── CSRF protection (double-submit cookie) ────────────────────────────────────
 app.use(issueCsrfToken);
 app.use(verifyCsrfToken);
-
 
 app.use((req: Request, res: Response, next: NextFunction) => {
   if (req.path === "/api/payments/webhook") return next();
