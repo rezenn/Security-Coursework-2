@@ -3,26 +3,13 @@ import QRCode from "qrcode";
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import config from "../config/env.config";
+import { encryptField, decryptField } from "../utils/encryption.utils";
 
-const KEY = Buffer.from(config.encryption.key);
-
-export const encryptSecret = (plaintext: string): string => {
-  const iv = crypto.randomBytes(16);
-  const cipher = crypto.createCipheriv("aes-256-gcm", KEY, iv);
-  const encrypted = Buffer.concat([cipher.update(plaintext, "utf8"), cipher.final()]);
-  const tag = cipher.getAuthTag();
-  return `${iv.toString("hex")}:${tag.toString("hex")}:${encrypted.toString("hex")}`;
-};
-
-export const decryptSecret = (data: string): string => {
-  const [ivHex, tagHex, encHex] = data.split(":");
-  const iv = Buffer.from(ivHex, "hex");
-  const tag = Buffer.from(tagHex, "hex");
-  const enc = Buffer.from(encHex, "hex");
-  const decipher = crypto.createDecipheriv("aes-256-gcm", KEY, iv);
-  decipher.setAuthTag(tag);
-  return decipher.update(enc).toString("utf8") + decipher.final("utf8");
-};
+// Kept as named aliases so existing call sites (encryptSecret/decryptSecret)
+// don't need renaming — both now delegate to the single shared,
+// audited AES-256-GCM implementation in encryption.utils.ts.
+export const encryptSecret = encryptField;
+export const decryptSecret = decryptField;
 
 export interface MFASetupResult {
   secret: string;
@@ -32,7 +19,9 @@ export interface MFASetupResult {
   hashedBackupCodes: string[];
 }
 
-export const generateMFASetup = async (email: string): Promise<MFASetupResult> => {
+export const generateMFASetup = async (
+  email: string,
+): Promise<MFASetupResult> => {
   const secretObj = speakeasy.generateSecret({
     name: `${config.mfa.appName} (${email})`,
     issuer: config.mfa.appName,
@@ -48,7 +37,13 @@ export const generateMFASetup = async (email: string): Promise<MFASetupResult> =
     backupCodes.push(code);
     hashedBackupCodes.push(await bcrypt.hash(code, 10));
   }
-  return { secret: encryptedSecret, otpauthUrl: secretObj.otpauth_url!, qrCodeDataUrl, backupCodes, hashedBackupCodes };
+  return {
+    secret: encryptedSecret,
+    otpauthUrl: secretObj.otpauth_url!,
+    qrCodeDataUrl,
+    backupCodes,
+    hashedBackupCodes,
+  };
 };
 
 export const verifyTOTP = (encryptedSecret: string, token: string): boolean => {

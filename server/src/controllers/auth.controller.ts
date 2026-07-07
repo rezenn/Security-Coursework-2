@@ -20,6 +20,7 @@ import {
   verifyTOTP,
 } from "../services/mfa.service";
 import { logSecurityEvent } from "../utils/logger.utils";
+import { encryptField } from "../utils/encryption.utils";
 
 const ip = (req: Request) => req.ip || "unknown";
 const ua = (req: Request) =>
@@ -60,12 +61,12 @@ const issueSession = async (user: IUser, req: Request, res: Response) => {
   userDoc.activeRefreshTokens.push({
     tokenHash: hashToken(refreshToken),
     userAgent: ua(req),
-    ip: ip(req),
+    ip: encryptField(ip(req)),
     createdAt: new Date(),
     expiresAt: getTokenExpiryDate(config.jwt.refreshExpires),
   });
   userDoc.lastLoginAt = new Date();
-  userDoc.lastLoginIp = ip(req);
+  userDoc.lastLoginIp = encryptField(ip(req));
   await userDoc.save({ validateBeforeSave: false });
 
   setRefreshCookie(res, refreshToken);
