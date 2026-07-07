@@ -5,11 +5,16 @@ import { toast } from "sonner";
 import { authApi } from "@/lib/api";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { Spinner, ErrorAlert, SuccessAlert } from "@/components/shared";
-import Image from "next/image";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 export default function MFASetupPage() {
+  const router = useRouter(); // Initialize router
   const { loading: authLoading } = useRequireAuth();
-  const [setup, setSetup] = useState<{ qrCodeDataUrl: string; backupCodes: string[] } | null>(null);
+  const [setup, setSetup] = useState<{
+    qrCodeDataUrl: string;
+    backupCodes: string[];
+  } | null>(null);
   const [token, setToken] = useState("");
   const [loading, setLoading] = useState(true);
   const [confirming, setConfirming] = useState(false);
@@ -19,9 +24,12 @@ export default function MFASetupPage() {
 
   useEffect(() => {
     if (authLoading) return;
-    authApi.setupMFA()
+    authApi
+      .setupMFA()
       .then((d) => setSetup(d))
-      .catch((e) => setError(e?.response?.data?.error || "Failed to initialize MFA setup"))
+      .catch((e) =>
+        setError(e?.response?.data?.error || "Failed to initialize MFA setup"),
+      )
       .finally(() => setLoading(false));
   }, [authLoading]);
 
@@ -31,7 +39,12 @@ export default function MFASetupPage() {
     setError("");
     try {
       await authApi.confirmMFA(token);
-      setSuccess("MFA enabled! Your account is now protected with two-factor authentication.");
+      setSuccess(
+        "MFA enabled! Your account is now protected with two-factor authentication.",
+      );
+      setTimeout(() => {
+        router.push("/dashboard");
+      }, 1500);
     } catch (err: any) {
       setError(err?.response?.data?.error || "Invalid code. Try again.");
     } finally {
@@ -47,7 +60,12 @@ export default function MFASetupPage() {
     setTimeout(() => setCopied(false), 3000);
   };
 
-  if (loading) return <div className="flex justify-center p-12"><Spinner size={28} className="text-blue-400" /></div>;
+  if (loading)
+    return (
+      <div className="flex justify-center p-12">
+        <Spinner size={28} className="text-blue-400" />
+      </div>
+    );
 
   return (
     <div className="card max-w-lg mx-auto">
@@ -57,20 +75,40 @@ export default function MFASetupPage() {
         </div>
         <div>
           <h1 className="text-xl font-bold text-white">Enable 2FA</h1>
-          <p className="text-slate-400 text-sm">Protect your account with an authenticator app</p>
+          <p className="text-slate-400 text-sm">
+            Protect your account with an authenticator app
+          </p>
         </div>
       </div>
 
-      {error && <div className="mb-4"><ErrorAlert message={error} /></div>}
-      {success && <div className="mb-4"><SuccessAlert message={success} /></div>}
+      {error && (
+        <div className="mb-4">
+          <ErrorAlert message={error} />
+        </div>
+      )}
+      {success && (
+        <div className="mb-4">
+          <SuccessAlert message={success} />
+          <p className="text-sm text-slate-400 mt-2 text-center">
+            Redirecting to dashboard...
+          </p>
+        </div>
+      )}
 
       {setup && !success && (
         <>
           <div className="space-y-4">
             <div>
-              <p className="text-slate-300 text-sm mb-3 font-medium">Step 1 — Scan this QR code</p>
+              <p className="text-slate-300 text-sm mb-3 font-medium">
+                Step 1 — Scan this QR code
+              </p>
               <div className="bg-white rounded-xl p-3 w-fit mx-auto">
-                <img src={setup.qrCodeDataUrl} alt="MFA QR Code" width={200} height={200} />
+                <img
+                  src={setup.qrCodeDataUrl}
+                  alt="MFA QR Code"
+                  width={200}
+                  height={200}
+                />
               </div>
               <p className="text-xs text-slate-500 text-center mt-2">
                 Use Google Authenticator, Authy, or any TOTP app
@@ -79,22 +117,33 @@ export default function MFASetupPage() {
 
             <div>
               <div className="flex items-center justify-between mb-2">
-                <p className="text-slate-300 text-sm font-medium">Step 2 — Save backup codes</p>
-                <button onClick={copyBackupCodes} className="flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300">
+                <p className="text-slate-300 text-sm font-medium">
+                  Step 2 — Save backup codes
+                </p>
+                <button
+                  onClick={copyBackupCodes}
+                  className="flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300"
+                >
                   {copied ? <CheckCircle size={12} /> : <Copy size={12} />}
                   {copied ? "Copied!" : "Copy all"}
                 </button>
               </div>
               <div className="bg-slate-900 border border-slate-700 rounded-lg p-3 grid grid-cols-2 gap-1">
                 {setup.backupCodes.map((code, i) => (
-                  <code key={i} className="text-xs text-green-400 font-mono">{code}</code>
+                  <code key={i} className="text-xs text-green-400 font-mono">
+                    {code}
+                  </code>
                 ))}
               </div>
-              <p className="text-xs text-yellow-400 mt-2">⚠️ Store these somewhere safe — they can only be shown once.</p>
+              <p className="text-xs text-yellow-400 mt-2">
+                Store these somewhere safe — they can only be shown once.
+              </p>
             </div>
 
             <form onSubmit={handleConfirm}>
-              <p className="text-slate-300 text-sm font-medium mb-2">Step 3 — Verify setup</p>
+              <p className="text-slate-300 text-sm font-medium mb-2">
+                Step 3 — Verify setup
+              </p>
               <input
                 type="text"
                 inputMode="numeric"
@@ -102,15 +151,31 @@ export default function MFASetupPage() {
                 value={token}
                 onChange={(e) => setToken(e.target.value)}
                 placeholder="Enter 6-digit code from app"
-                className="input tracking-[0.3em] text-center text-lg mb-3"
+                className="input  text-center text-lg mb-3"
               />
-              <button type="submit" disabled={confirming || token.length !== 6} className="btn-primary w-full flex items-center justify-center gap-2">
+              <button
+                type="submit"
+                disabled={confirming || token.length !== 6}
+                className="btn-primary w-full flex items-center justify-center gap-2"
+              >
                 {confirming ? <Spinner size={16} /> : <ShieldCheck size={16} />}
                 Enable 2FA
               </button>
             </form>
           </div>
         </>
+      )}
+
+      {/* Optional: Add a manual navigation button after success */}
+      {success && (
+        <div className="mt-4 text-center">
+          <Link
+            href="/dashboard"
+            className="inline-flex items-center gap-2 text-sm bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 px-4 py-2 rounded-lg transition-colors font-medium"
+          >
+            Go to Dashboard →
+          </Link>
+        </div>
       )}
     </div>
   );

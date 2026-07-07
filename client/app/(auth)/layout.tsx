@@ -1,5 +1,5 @@
-import { BookOpen } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 
 export default function AuthLayout({
   children,
@@ -10,7 +10,16 @@ export default function AuthLayout({
     <div className="min-h-screen bg-slate-900 flex flex-col">
       <div className="p-6">
         <Link href="/" className="flex items-center gap-2 w-fit">
-          <BookOpen className="text-blue-500" size={22} />
+          <div className="relative w-8 h-8 rounded-lg overflow-hidden shadow-lg">
+            <Image
+              src="/images/logo.jpg"
+              alt="GyanKosh Logo"
+              width={32}
+              height={32}
+              className="object-cover w-full h-full"
+              priority
+            />
+          </div>{" "}
           <span className="text-lg font-bold text-white">GyanKosh</span>
         </Link>
       </div>

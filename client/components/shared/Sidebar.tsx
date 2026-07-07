@@ -24,9 +24,6 @@ import { useState } from "react";
 const userNav = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/courses", label: "Browse Courses", icon: BookOpen },
-  // Was pointing at "/dashboard" — identical to the Dashboard link above, so
-  // "My Learning" never actually navigated anywhere new. Now points at its
-  // own route with the full enrolled-courses grid.
   { href: "/my-learning", label: "My Learning", icon: BookMarked },
   { href: "/profile", label: "Profile", icon: User },
 ];
@@ -36,8 +33,7 @@ const adminNav = [
   { href: "/admin/users", label: "Users", icon: Users },
   { href: "/admin/courses", label: "Courses", icon: GraduationCap },
   { href: "/admin/transactions", label: "Transactions", icon: CreditCard },
-  // /admin/logs route exists on the backend but no client page yet —
-  // kept in nav so it's discoverable; clicking navigates to 404 for now.
+
   { href: "/admin/logs", label: "Audit Logs", icon: FileText },
   { href: "/admin/profile", label: "Profile", icon: User },
 ];
