@@ -14,6 +14,7 @@ const schema = z.object({
   email: z.string().email("Valid email required"),
   password: z.string().min(1, "Password required"),
   mfaToken: z.string().optional(),
+  deviceCode: z.string().optional(),
 });
 type Form = z.infer<typeof schema>;
 
@@ -59,6 +60,8 @@ function LoginContent() {
   const searchParams = useSearchParams();
   const [showPw, setShowPw] = useState(false);
   const [mfaRequired, setMfaRequired] = useState(false);
+  const [deviceVerificationRequired, setDeviceVerificationRequired] =
+    useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -109,10 +112,15 @@ function LoginContent() {
         data.password,
         captchaToken,
         data.mfaToken,
+        data.deviceCode,
       );
       if (result.mfaRequired) {
         setMfaRequired(true);
         toast.info("Enter the 6-digit code from your authenticator app");
+      }
+      if (result.deviceVerificationRequired) {
+        setDeviceVerificationRequired(true);
+        toast.info("We emailed you a code to confirm this new device");
       }
     } catch (err: any) {
       const msg = err?.response?.data?.error || "Invalid email or password";
@@ -222,6 +230,31 @@ function LoginContent() {
             </div>
           )}
 
+          {/* New-device verification step */}
+          {deviceVerificationRequired && (
+            <div className="bg-amber-500/8 border border-amber-500/25 rounded-xl p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <ShieldCheck size={15} className="text-amber-400" />
+                <p className="text-sm font-medium text-amber-300">
+                  Confirm this device
+                </p>
+              </div>
+              <input
+                {...register("deviceCode")}
+                type="text"
+                inputMode="numeric"
+                maxLength={6}
+                placeholder="000000"
+                className="input tracking-[0.4em] text-center text-xl font-mono"
+                autoFocus
+              />
+              <p className="text-xs text-slate-500 mt-2">
+                We don&apos;t recognize this device or location. Enter the
+                6-digit code we just emailed you to continue.
+              </p>
+            </div>
+          )}
+
           <button
             type="submit"
             disabled={loading}
@@ -230,7 +263,7 @@ function LoginContent() {
             {loading ? <Spinner size={18} /> : null}
             {loading
               ? "Signing in..."
-              : mfaRequired
+              : mfaRequired || deviceVerificationRequired
                 ? "Verify & Sign In"
                 : "Sign In"}
           </button>

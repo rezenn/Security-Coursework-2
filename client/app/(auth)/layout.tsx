@@ -28,7 +28,7 @@ export default function AuthLayout({
       </div>{" "}
       <div>
         <p
-          className="text-slate-600 text-xs align-middle align-top flex 
+          className="text-slate-600 text-xs align-middle flex 
        justify-center"
         >
           © {new Date().getFullYear()} GyanKosh.

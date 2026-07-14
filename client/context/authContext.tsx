@@ -37,7 +37,12 @@ interface AuthCtx {
     password: string,
     captchaToken?: string,
     mfaToken?: string,
-  ) => Promise<{ mfaRequired?: boolean; tempToken?: string }>;
+    deviceCode?: string,
+  ) => Promise<{
+    mfaRequired?: boolean;
+    tempToken?: string;
+    deviceVerificationRequired?: boolean;
+  }>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
   isAdmin: boolean;
@@ -90,16 +95,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     password: string,
     captchaToken?: string,
     mfaToken?: string,
+    deviceCode?: string,
   ) => {
     const { data } = await api.post("/auth/login", {
       email,
       password,
       captchaToken,
       mfaToken,
+      deviceCode,
     });
 
     if (data.mfaRequired) {
       return { mfaRequired: true, tempToken: data.tempToken };
+    }
+
+    // New device/location never seen on this account before (and MFA is
+    // off, so there's no other step-up) — a one-time code was emailed to
+    // the account owner; the form re-submits with it as `deviceCode`.
+    if (data.deviceVerificationRequired) {
+      return { deviceVerificationRequired: true };
     }
 
     // Store access token
