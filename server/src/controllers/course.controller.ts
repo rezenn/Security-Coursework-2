@@ -5,7 +5,12 @@ import { logSecurityEvent } from "../utils/logger.utils";
 import {
   courseThumbnailUrl,
   deleteUploadedFile,
+  saveCourseThumbnailBuffer,
 } from "../middleware/upload.middleware";
+import {
+  fetchImageSafely,
+  SsrfBlockedError,
+} from "../services/ssrfSafeFetch.service";
 import { safeSearchRegex } from "../utils/sanitize.utils";
 
 const ip = (req: Request) => req.ip || "unknown";
@@ -253,6 +258,71 @@ export const uploadThumbnail = async (
   });
 
   res.status(200).json({ message: "Thumbnail updated", course });
+};
+
+// ── POST /api/admin/courses/:id/thumbnail-url ────────────────────────────────
+// Alternative to the file-upload path above: admin pastes an image URL
+// instead of uploading a file. This is the classic SSRF-prone shape
+// ("server fetches a URL the client supplies") — see
+// ssrfSafeFetch.service.ts for the full set of mitigations applied before
+// any outbound request is made.
+export const importThumbnailFromUrl = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  if (!req.user) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+
+  const { url } = req.body;
+  if (!url || typeof url !== "string") {
+    res.status(400).json({ error: "url is required" });
+    return;
+  }
+
+  const course = await Course.findById(req.params.id);
+  if (!course) {
+    res.status(404).json({ error: "Course not found" });
+    return;
+  }
+
+  let fetched;
+  try {
+    fetched = await fetchImageSafely(url, {
+      userId: req.user.sub,
+      ip: ip(req),
+    });
+  } catch (err) {
+    if (err instanceof SsrfBlockedError) {
+      res.status(400).json({ error: err.message });
+      return;
+    }
+    res.status(400).json({ error: "Failed to fetch image from that URL" });
+    return;
+  }
+
+  const filename = saveCourseThumbnailBuffer(
+    fetched.buffer,
+    fetched.contentType,
+  );
+  const oldThumbnail = course.thumbnail;
+  course.thumbnail = courseThumbnailUrl(filename);
+  await course.save();
+
+  if (oldThumbnail) deleteUploadedFile(oldThumbnail);
+
+  logSecurityEvent(
+    "course_thumbnail_imported_from_url",
+    req.user.sub,
+    ip(req),
+    {
+      courseId: req.params.id,
+      sourceUrl: url,
+    },
+  );
+
+  res.status(200).json({ message: "Thumbnail imported", course });
 };
 
 // ── POST /api/admin/courses/:id/lessons ──────────────────────────────────────

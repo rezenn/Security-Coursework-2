@@ -7,6 +7,7 @@ import {
   deleteCourse,
   deleteLesson,
   getCourse,
+  importThumbnailFromUrl,
   listCourses,
   reorderLessons,
   updateCourse,
@@ -40,7 +41,10 @@ import {
   optionalAuth,
 } from "../middleware/auth.middleware";
 import { validateRequest } from "../middleware/validation.middleware";
-import { createPaymentRateLimiter } from "../middleware/rateLimiter.middleware";
+import {
+  createPaymentRateLimiter,
+  createUrlFetchRateLimiter,
+} from "../middleware/rateLimiter.middleware";
 import {
   uploadAvatar,
   uploadCourseThumbnail,
@@ -200,5 +204,15 @@ adminRouter.post(
     });
   },
   uploadThumbnail,
+);
+adminRouter.post(
+  "/courses/:id/thumbnail-url",
+  createUrlFetchRateLimiter(),
+  [
+    param("id").isMongoId(),
+    body("url").isURL({ protocols: ["http", "https"], require_protocol: true }),
+  ],
+  validateRequest,
+  importThumbnailFromUrl,
 );
 adminRouter.get("/transactions", adminListTransactions);

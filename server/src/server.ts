@@ -23,7 +23,7 @@ import {
   honeytokenRouter,
 } from "./middleware/honeytoken.middleware";
 import authRoutes from "./routes/auth.routes";
-import securityRoutes from "./routes/security.route";
+import securityRoutes from "./routes/security.routes";
 import {
   courseRouter,
   profileRouter,

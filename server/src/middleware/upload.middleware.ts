@@ -84,3 +84,21 @@ export const deleteUploadedFile = (
     /* ignore missing file */
   });
 };
+
+const CONTENT_TYPE_EXT: Record<string, string> = {
+  "image/jpeg": ".jpg",
+  "image/png": ".png",
+  "image/webp": ".webp",
+  "image/gif": ".gif",
+};
+
+export const saveCourseThumbnailBuffer = (
+  buffer: Buffer,
+  contentType: string,
+): string => {
+  const ext = CONTENT_TYPE_EXT[contentType];
+  if (!ext) throw new Error("Unsupported content type");
+  const filename = safeFilename(`upload${ext}`);
+  fs.writeFileSync(path.join(COURSE_DIR, filename), buffer);
+  return filename;
+};

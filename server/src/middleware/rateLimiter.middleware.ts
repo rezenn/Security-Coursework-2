@@ -36,3 +36,13 @@ export const createPaymentRateLimiter = () =>
     keyGenerator: (req) => req.ip || "unknown",
     message: { error: "Too many payment attempts. Please try again later." },
   });
+
+export const createUrlFetchRateLimiter = () =>
+  rateLimit({
+    windowMs: 60 * 60 * 1000, // 1 hour
+    max: 20,
+    standardHeaders: true,
+    legacyHeaders: false,
+    keyGenerator: (req) => req.ip || "unknown",
+    message: { error: "Too many URL import attempts. Please try again later." },
+  });

@@ -74,7 +74,8 @@ export const logSecurityEvent = (
   SENSITIVE.forEach((k) => {
     if (k in sanitized) sanitized[k] = "[REDACTED]";
   });
-  auditLogger.info({
+ 
+  auditLogger.info(event, {
     event,
     userId: userId ?? "anonymous",
     ip,
