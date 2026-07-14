@@ -11,6 +11,7 @@ import {
   fetchImageSafely,
   SsrfBlockedError,
 } from "../services/ssrfSafeFetch.service";
+import { matchesImageSignature } from "../utils/fileSignature.utils";
 import { safeSearchRegex } from "../utils/sanitize.utils";
 
 const ip = (req: Request) => req.ip || "unknown";
@@ -77,11 +78,6 @@ export const getCourse = async (req: Request, res: Response): Promise<void> => {
       ) ?? false;
   }
 
-  // Non-enrolled users only see free preview lessons — but the whole point
-  // of a "free preview" is that its video IS playable, so unlike paid
-  // lessons (which are excluded entirely by the filter below) we must NOT
-  // strip the videoUrl here. Stripping it made every free lesson look
-  // available but silently unwatchable.
   const lessons = isEnrolled
     ? course.lessons.map((l) => l.toObject())
     : course.lessons.filter((l) => l.isFree).map((l) => l.toObject());
@@ -130,11 +126,7 @@ export const createCourse = async (
     category,
     level: level || "beginner",
     priceCents: parseInt(String(priceCents), 10) || 0,
-    // GyanKosh is NPR-only (see course.model.ts enum). The old default of
-    // "USD" here was never a valid enum value, which is why saving a course
-    // (or re-validating it when a lesson was added) crashed with a
-    // Mongoose ValidationError. Always default to NPR; never trust a
-    // client-supplied currency on an NPR-only platform.
+
     currency: "NPR",
     tags: Array.isArray(tags) ? tags : [],
     createdBy: req.user.sub,
@@ -299,6 +291,19 @@ export const importThumbnailFromUrl = async (
       return;
     }
     res.status(400).json({ error: "Failed to fetch image from that URL" });
+    return;
+  }
+
+  if (!matchesImageSignature(fetched.buffer, fetched.contentType)) {
+    logSecurityEvent("upload_content_mismatch", req.user.sub, ip(req), {
+      source: "url-import",
+      sourceUrl: url,
+      declaredContentType: fetched.contentType,
+      headerHex: fetched.buffer.subarray(0, 16).toString("hex"),
+    });
+    res.status(400).json({
+      error: "The URL's content did not match its declared image type",
+    });
     return;
   }
 

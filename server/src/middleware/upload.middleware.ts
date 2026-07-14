@@ -1,8 +1,13 @@
 import multer, { FileFilterCallback } from "multer";
-import { Request } from "express";
+import { Request, Response, NextFunction } from "express";
 import path from "path";
 import fs from "fs";
 import crypto from "crypto";
+import {
+  matchesImageSignature,
+  readFileHeader,
+} from "../utils/fileSignature.utils";
+import { logSecurityEvent } from "../utils/logger.utils";
 
 // ── Storage roots ───────────────────────────────────────────────────────────
 // Files are served statically from /uploads (see server.ts). Kept outside
@@ -66,6 +71,47 @@ export const uploadCourseThumbnail = multer({
   limits: { fileSize: MAX_FILE_SIZE_BYTES, files: 1 },
   fileFilter: imageFileFilter,
 }).single("thumbnail");
+
+/**
+ * Runs AFTER multer has written the file to disk (fileFilter above only
+ * sees the declared mimetype/filename, never the actual bytes) and BEFORE
+ * the route's controller touches it. Reads just the file's header and
+ * checks it against the real binary signature for the type it claims to
+ * be — see fileSignature.utils.ts. A mismatch means the client-declared
+ * mimetype/extension was spoofed (accidentally or, more likely here,
+ * deliberately), so the file is deleted immediately rather than ever
+ * being linked from a course/profile.
+ */
+export const verifyImageMagicBytes = (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): void => {
+  if (!req.file) {
+    next();
+    return;
+  }
+
+  const header = readFileHeader(req.file.path, 16);
+  if (!matchesImageSignature(header, req.file.mimetype)) {
+    const userId = req.user?.sub ?? null;
+    fs.unlink(req.file.path, () => {
+      /* best-effort cleanup */
+    });
+    logSecurityEvent("upload_content_mismatch", userId, req.ip || "unknown", {
+      declaredMimetype: req.file.mimetype,
+      originalName: req.file.originalname,
+      headerHex: header.toString("hex"),
+    });
+    res.status(400).json({
+      error:
+        "File content does not match its declared image type and was rejected",
+    });
+    return;
+  }
+
+  next();
+};
 
 // Public URL builders (relative — client prefixes with API origin if needed)
 export const avatarUrl = (filename: string): string =>

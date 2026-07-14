@@ -48,6 +48,7 @@ import {
 import {
   uploadAvatar,
   uploadCourseThumbnail,
+  verifyImageMagicBytes,
 } from "../middleware/upload.middleware";
 
 export const courseRouter = Router();
@@ -94,6 +95,7 @@ profileRouter.post(
       next();
     });
   },
+  verifyImageMagicBytes,
   uploadAvatarHandler,
 );
 
@@ -203,6 +205,7 @@ adminRouter.post(
       next();
     });
   },
+  verifyImageMagicBytes,
   uploadThumbnail,
 );
 adminRouter.post(

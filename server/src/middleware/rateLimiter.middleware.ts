@@ -2,7 +2,9 @@ import rateLimit from "express-rate-limit";
 import config from "../config/env.config";
 
 const isAllowedIp = (ip: string): boolean =>
-  config.ipAllowlist.some((allowed) => ip === allowed || ip === `::ffff:${allowed}`);
+  config.ipAllowlist.some(
+    (allowed) => ip === allowed || ip === `::ffff:${allowed}`,
+  );
 
 export const createGlobalRateLimiter = () =>
   rateLimit({
