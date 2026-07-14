@@ -7,7 +7,10 @@ const transporter = nodemailer.createTransport({
   port: config.email.port,
   secure: config.email.port === 465,
   auth: { user: config.email.user, pass: config.email.pass },
-  tls: { rejectUnauthorized: config.env === "production", minVersion: "TLSv1.2" },
+  tls: {
+    rejectUnauthorized: config.env === "production",
+    minVersion: "TLSv1.2",
+  },
 });
 
 const base = (title: string, body: string) => `
@@ -32,7 +35,9 @@ code{background:#f3f4f6;padding:2px 6px;border-radius:3px;font-family:monospace;
 const send = async (to: string, subject: string, html: string) => {
   try {
     if (!config.email.user || !config.email.pass) {
-      logger.info(`[DEV EMAIL skipped — no SMTP config] To: ${to} | ${subject}`);
+      logger.info(
+        `[DEV EMAIL skipped — no SMTP config] To: ${to} | ${subject}`,
+      );
       return;
     }
     if (config.env !== "production" && !config.email.sendInDevelopment) {
@@ -46,22 +51,45 @@ const send = async (to: string, subject: string, html: string) => {
   }
 };
 
-export const sendVerificationEmail = (to: string, username: string, token: string, code: string) =>
-  send(to, "Verify your GyanKosh account", base("Verify Email",
-    `<h3>Welcome, ${username}!</h3>
+export const sendVerificationEmail = (
+  to: string,
+  username: string,
+  token: string,
+  code: string,
+) =>
+  send(
+    to,
+    "Verify your GyanKosh account",
+    base(
+      "Verify Email",
+      `<h3>Welcome, ${username}!</h3>
     <p>Your verification code: <strong>${code}</strong> (expires in 24h)</p>
     <a href="${config.frontendUrl}/verify-email?token=${token}" class="btn">Verify Email</a>
-    <div class="warn">⚠️ If you didn't create this account, ignore this email.</div>`));
+    <div class="warn">⚠️ If you didn't create this account, ignore this email.</div>`,
+    ),
+  );
 
-export const sendPasswordResetEmail = (to: string, username: string, token: string, code: string) =>
-  send(to, "Reset your GyanKosh password", base("Password Reset",
-    `<h3>Password Reset Request</h3>
+export const sendPasswordResetEmail = (
+  to: string,
+  username: string,
+  token: string,
+  code: string,
+) =>
+  send(
+    to,
+    "Reset your GyanKosh password",
+    base(
+      "Password Reset",
+      `<h3>Password Reset Request</h3>
     <p>Hi ${username}, your reset code: <strong>${code}</strong> (expires in 15 min)</p>
     <a href="${config.frontendUrl}/reset-password/${token}" class="btn">Reset Password</a>
-    <div class="warn">⚠️ If you didn't request this, change your password immediately.</div>`));
+    <div class="warn">⚠️ If you didn't request this, change your password immediately.</div>`,
+    ),
+  );
 
 export const sendSecurityAlertEmail = (
-  to: string, username: string,
+  to: string,
+  username: string,
   type: "new_login" | "password_changed" | "mfa_enabled" | "account_locked",
   details: { ip?: string; userAgent?: string; timestamp?: string },
 ) => {
@@ -71,15 +99,64 @@ export const sendSecurityAlertEmail = (
     mfa_enabled: "Two-factor authentication was enabled.",
     account_locked: `Account locked after repeated failed attempts from <code>${details.ip}</code>.`,
   };
-  return send(to, `GyanKosh Security Alert`, base("Security Alert",
-    `<h3>Security Alert</h3><p>Hi ${username},</p><p>${msgs[type]}</p>
+  return send(
+    to,
+    `GyanKosh Security Alert`,
+    base(
+      "Security Alert",
+      `<h3>Security Alert</h3><p>Hi ${username},</p><p>${msgs[type]}</p>
     <p><strong>Time:</strong> ${details.timestamp || new Date().toISOString()}</p>
-    <div class="warn">⚠️ If this wasn't you, reset your password immediately.</div>`));
+    <div class="warn">⚠️ If this wasn't you, reset your password immediately.</div>`,
+    ),
+  );
 };
 
-export const sendPurchaseConfirmationEmail = (to: string, username: string, courseTitle: string, amountCents: number) =>
-  send(to, `GyanKosh: Purchase Confirmed — ${courseTitle}`, base("Purchase Confirmed",
-    `<h3>Thank you, ${username}!</h3>
+// ── Risk-based authentication: new-device step-up code ──────────────────────
+export const sendNewDeviceCodeEmail = (
+  to: string,
+  username: string,
+  code: string,
+  details: { ip?: string; userAgent?: string },
+) =>
+  send(
+    to,
+    "Confirm it's you — new device detected | GyanKosh",
+    base(
+      "Verify This Device",
+      `<h3>Hi ${username},</h3>
+    <p>We noticed a login attempt from a device or location we haven't seen on your account before.</p>
+    <p>Verification code: <strong>${code}</strong> (expires in 10 minutes)</p>
+    <p><strong>IP:</strong> <code>${details.ip || "unknown"}</code><br/>
+    <strong>Device:</strong> <code>${details.userAgent || "unknown"}</code></p>
+    <div class="warn">⚠️ If this wasn't you, do not share this code — change your password immediately instead.</div>`,
+    ),
+  );
+
+// ── Honeytoken / admin security alerts ───────────────────────────────────────
+export const sendAdminAlertEmail = (subject: string, bodyHtml: string) => {
+  const to = config.email.adminAlertEmail || config.email.user;
+  if (!to) return Promise.resolve();
+  return send(
+    to,
+    `[GyanKosh SECURITY] ${subject}`,
+    base("Security Alert", bodyHtml),
+  );
+};
+
+export const sendPurchaseConfirmationEmail = (
+  to: string,
+  username: string,
+  courseTitle: string,
+  amountCents: number,
+) =>
+  send(
+    to,
+    `GyanKosh: Purchase Confirmed — ${courseTitle}`,
+    base(
+      "Purchase Confirmed",
+      `<h3>Thank you, ${username}!</h3>
     <p>Your purchase of <strong>${courseTitle}</strong> is confirmed.</p>
     <p>Amount charged: <strong>$${(amountCents / 100).toFixed(2)}</strong></p>
-    <a href="${config.frontendUrl}/dashboard" class="btn">Go to Dashboard</a>`));
+    <a href="${config.frontendUrl}/dashboard" class="btn">Go to Dashboard</a>`,
+    ),
+  );

@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import crypto from "crypto";
 import User, { IUser } from "../models/user.model";
 import config from "../config/env.config";
 import { validatePasswordPolicy } from "../services/password.service";
@@ -21,6 +22,12 @@ import {
 } from "../services/mfa.service";
 import { logSecurityEvent } from "../utils/logger.utils";
 import { encryptField } from "../utils/encryption.utils";
+import {
+  computeDeviceFingerprint,
+  isKnownDevice,
+  rememberDevice,
+} from "../services/deviceRisk.service";
+import { sendNewDeviceCodeEmail } from "../services/email.service";
 
 const ip = (req: Request) => req.ip || "unknown";
 const ua = (req: Request) =>
@@ -179,10 +186,16 @@ export const verifyEmail = async (
 
 // ── POST /api/auth/login ──────────────────────────────────────────────────────
 export const login = async (req: Request, res: Response): Promise<void> => {
-  const { email, password, mfaToken } = req.body;
+  const { email, password, mfaToken, deviceCode } = req.body;
 
+  // NOTE: loginVerification.fingerprint is `select: false` in the schema,
+  // same as codeHash. It MUST be re-selected here too, or the device-code
+  // comparison below (`pending.fingerprint === fingerprint`) always compares
+  // against `undefined` and every correct code gets rejected as invalid.
   const user = await User.findOne({ email }).select(
-    "+password +mfa.secret +mfa.backupCodes +failedLoginAttempts +lockedUntil +activeRefreshTokens",
+    "+password +mfa.secret +mfa.backupCodes +failedLoginAttempts +lockedUntil " +
+      "+activeRefreshTokens +knownDevices +loginVerification.codeHash " +
+      "+loginVerification.fingerprint",
   );
 
   if (!user) {
@@ -269,18 +282,97 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     }
   }
 
+  // ── Risk-based (adaptive) step-up ──────────────────────────────────────────
+  // OWASP ASVS V2.2.1 / NIST 800-63B §6.1.2.3: when a login is seen from a
+  // device/IP combination never associated with this account before, treat
+  // it as elevated risk. MFA-enabled accounts already get an equivalent
+  // step-up via TOTP, so this only adds friction where there'd otherwise be
+  // none: password-only accounts. This directly blocks the common
+  // credential-stuffing/account-takeover scenario where an attacker has a
+  // valid password (leaked/reused) but not the victim's device or inbox.
+  const fingerprint = computeDeviceFingerprint(ip(req), ua(req));
+  const deviceKnown = isKnownDevice(user, fingerprint);
+
+  if (!user.mfa.enabled && !deviceKnown) {
+    if (!deviceCode) {
+      const code = user.generateLoginVerificationCode(fingerprint);
+      await user.save({ validateBeforeSave: false });
+
+      sendNewDeviceCodeEmail(user.email, user.username, code, {
+        ip: ip(req),
+        userAgent: ua(req),
+      }).catch(() => {});
+
+      logSecurityEvent(
+        "login_new_device_challenge",
+        user._id.toHexString(),
+        ip(req),
+        {
+          email,
+        },
+      );
+
+      res.status(200).json({ deviceVerificationRequired: true });
+      return;
+    }
+
+    const providedHash = crypto
+      .createHash("sha256")
+      .update(String(deviceCode))
+      .digest("hex");
+    const pending = user.loginVerification;
+    const valid =
+      pending?.codeHash &&
+      pending.fingerprint === fingerprint &&
+      pending.expiresAt &&
+      pending.expiresAt > new Date() &&
+      pending.codeHash === providedHash;
+
+    if (!valid) {
+      logSecurityEvent(
+        "login_device_code_failed",
+        user._id.toHexString(),
+        ip(req),
+        {
+          email,
+        },
+      );
+      res.status(401).json({ error: "Invalid or expired verification code" });
+      return;
+    }
+
+    user.loginVerification = {
+      codeHash: null,
+      fingerprint: null,
+      expiresAt: null,
+    };
+  }
+
+  rememberDevice(user, fingerprint, ip(req), ua(req));
+
+  // resetFailedAttempts() saves `user` — including the knownDevices/
+  // loginVerification changes just made above — *before* issueSession
+  // below re-fetches the document separately to append the new refresh
+  // token. Saving `user` again after issueSession would overwrite that
+  // fresh activeRefreshTokens array with this stale in-memory copy, so
+  // this is the only save needed for these fields.
   await user.resetFailedAttempts();
   const { accessToken } = await issueSession(user, req, res);
 
-  sendSecurityAlertEmail(user.email, user.username, "new_login", {
-    ip: ip(req),
-    userAgent: ua(req),
-    timestamp: new Date().toISOString(),
-  }).catch(() => {});
+  // Only alert on truly new devices now — MFA-protected and already-known
+  // logins no longer spam an email on every single sign-in.
+  if (!deviceKnown) {
+    sendSecurityAlertEmail(user.email, user.username, "new_login", {
+      ip: ip(req),
+      userAgent: ua(req),
+      timestamp: new Date().toISOString(),
+    }).catch(() => {});
+  }
 
   logSecurityEvent("login_success", user._id.toHexString(), ip(req), {
     email,
     role: user.role,
+    newDevice: !deviceKnown,
   });
 
   res.status(200).json({

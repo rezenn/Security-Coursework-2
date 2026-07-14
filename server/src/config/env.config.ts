@@ -55,6 +55,9 @@ const config = {
     from: process.env.EMAIL_FROM || "GyanKosh <noreply@gyankosh.com>",
     sendInDevelopment:
       process.env.EMAIL_SEND_IN_DEVELOPMENT?.toLowerCase() === "true",
+    // Where honeytoken/intrusion alerts are sent; falls back to SMTP_USER
+    // if unset so this works out of the box in dev.
+    adminAlertEmail: process.env.ADMIN_ALERT_EMAIL || "",
   },
 
   recaptcha: {

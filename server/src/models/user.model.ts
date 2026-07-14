@@ -69,6 +69,25 @@ export interface IUser extends Document {
     expiresAt: Date;
   }[];
 
+  // ── Risk-based (adaptive) authentication ──────────────────────────────────
+  // OWASP ASVS v4 V2.2.1 / NIST SP 800-63B §6.1.2.3: re-authenticate or
+  // step-up when a login is observed from a device/context not previously
+  // associated with the account. `knownDevices` is the trust store;
+  // `loginVerification` holds a single pending step-up challenge.
+  knownDevices: {
+    fingerprint: string;
+    ip: string;
+    userAgent: string;
+    firstSeenAt: Date;
+    lastSeenAt: Date;
+  }[];
+
+  loginVerification: {
+    codeHash: string | null;
+    fingerprint: string | null;
+    expiresAt: Date | null;
+  };
+
   enrolledCourses: mongoose.Types.ObjectId[];
 
   createdAt: Date;
@@ -81,6 +100,7 @@ export interface IUser extends Document {
   resetFailedAttempts(): Promise<void>;
   generatePasswordResetToken(): { token: string; code: string };
   generateEmailVerificationToken(): { token: string; code: string };
+  generateLoginVerificationCode(fingerprint: string): string;
   isPasswordExpired(): boolean;
 }
 
@@ -181,6 +201,25 @@ const userSchema = new Schema<IUser>(
       select: false,
     },
 
+    knownDevices: {
+      type: [
+        {
+          fingerprint: { type: String, required: true },
+          ip: { type: String, required: true },
+          userAgent: { type: String, required: true },
+          firstSeenAt: { type: Date, default: Date.now },
+          lastSeenAt: { type: Date, default: Date.now },
+        },
+      ],
+      default: [],
+      select: false,
+    },
+    loginVerification: {
+      codeHash: { type: String, default: null, select: false },
+      fingerprint: { type: String, default: null, select: false },
+      expiresAt: { type: Date, default: null },
+    },
+
     enrolledCourses: [{ type: Schema.Types.ObjectId, ref: "Course" }],
   },
   {
@@ -200,6 +239,8 @@ const userSchema = new Schema<IUser>(
         delete ret.passwordResetToken;
         delete ret.passwordResetCode;
         delete ret.activeRefreshTokens;
+        delete ret.knownDevices;
+        delete ret.loginVerification;
         return ret;
       },
     },
@@ -292,6 +333,18 @@ userSchema.methods.generateEmailVerificationToken = function () {
     Date.now() + 24 * 60 * 60 * 1000,
   );
   return { token, code };
+};
+
+userSchema.methods.generateLoginVerificationCode = function (
+  fingerprint: string,
+): string {
+  const code = Math.floor(100000 + Math.random() * 900000).toString();
+  this.loginVerification = {
+    codeHash: crypto.createHash("sha256").update(code).digest("hex"),
+    fingerprint,
+    expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes
+  };
+  return code;
 };
 
 const User: Model<IUser> = mongoose.model<IUser>("User", userSchema);

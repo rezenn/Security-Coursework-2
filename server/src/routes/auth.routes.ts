@@ -59,6 +59,11 @@ router.post(
   [
     body("email").isEmail().normalizeEmail(),
     body("password").isString().notEmpty(),
+    // Second-step fields for MFA / new-device step-up continuation. Both
+    // optional on the initial request; the client resubmits with one of
+    // these set once the server responds mfaRequired/deviceVerificationRequired.
+    body("mfaToken").optional().isString().trim(),
+    body("deviceCode").optional().isLength({ min: 6, max: 6 }).isNumeric(),
   ],
   validateRequest,
   verifyRecaptcha,

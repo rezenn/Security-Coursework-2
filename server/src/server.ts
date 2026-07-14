@@ -18,7 +18,12 @@ import {
 } from "./middleware/rateLimiter.middleware";
 import { errorHandler } from "./middleware/error.middleware";
 import { issueCsrfToken, verifyCsrfToken } from "./middleware/csrf.middleware";
+import {
+  canaryBlockGuard,
+  honeytokenRouter,
+} from "./middleware/honeytoken.middleware";
 import authRoutes from "./routes/auth.routes";
+import securityRoutes from "./routes/security.route";
 import {
   courseRouter,
   profileRouter,
@@ -29,6 +34,12 @@ import {
 const app = express();
 
 app.set("trust proxy", 1);
+
+// ── Honeytoken IP guard ────────────────────────────────────────────────────
+// Mounted before literally everything else: an IP already flagged by the
+// canary trap below gets rejected before it costs us a Helmet header
+// computation, a body parse, a rate-limit bucket check, or a DB round trip.
+app.use(canaryBlockGuard);
 
 // ── Security headers ──────────────────────────────────────────────────────────
 app.use(
@@ -57,11 +68,27 @@ app.use(
           "https://www.youtube.com",
           "https://www.youtube-nocookie.com",
         ],
+        // Turns the CSP from purely preventive into detective too: every
+        // blocked script/style/connect attempt (i.e. every real or
+        // attempted XSS) gets POSTed here automatically by the browser.
+        // report-uri is deprecated in favour of report-to/Reporting-Endpoints,
+        // but is kept alongside it since it still has materially wider
+        // browser support (notably Safari never implemented report-to).
+        reportUri: ["/api/security/csp-report"],
       },
+      reportOnly: false,
     },
     hsts: { maxAge: 31536000, includeSubDomains: true },
   }),
 );
+// Modern reporting-API counterpart to reportUri above (Chrome/Firefox).
+app.use((_req: Request, res: Response, next: NextFunction) => {
+  res.setHeader(
+    "Reporting-Endpoints",
+    'csp-endpoint="/api/security/csp-report"',
+  );
+  next();
+});
 
 // ── CORS ──────────────────────────────────────────────────────────────────────
 // CWE-942 (Permissive Cross-domain Policy): a static `origin: true`, a `*`
@@ -106,6 +133,22 @@ app.use(
 app.use(
   "/api/payments/webhook",
   express.raw({ type: "application/json", limit: "1mb" }),
+);
+
+// ── Honeytoken canary routes ─────────────────────────────────────────────────
+// Mounted early and outside the normal route table further down, deliberately
+// ahead of CSRF/rate-limiting: a hit on any of these paths is handled and
+// short-circuited immediately (see honeytoken.middleware.ts for rationale).
+app.use(honeytokenRouter);
+
+// Browsers send CSP violation reports as `application/csp-report` or
+// `application/reports+json`, which the general express.json() below (typed
+// to "application/json" only) will not parse. Force-parse as JSON on this
+// one route, same targeted-middleware pattern already used for the Stripe
+// webhook's raw-body requirement above.
+app.use(
+  "/api/security/csp-report",
+  express.json({ type: () => true, limit: "15kb" }),
 );
 
 // ── Static uploaded assets ──────────────────────────────────────────────────
@@ -184,6 +227,7 @@ app.use("/api/courses", courseRouter);
 app.use("/api/profile", profileRouter);
 app.use("/api/payments", paymentRouter);
 app.use("/api/admin", adminRouter);
+app.use("/api/security", securityRoutes);
 
 // ── Health ────────────────────────────────────────────────────────────────────
 app.get("/api/health", (_req: Request, res: Response) => {
