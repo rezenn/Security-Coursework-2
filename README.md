@@ -18,8 +18,6 @@
 10. [API Reference](#10-api-reference)
 11. [Docker & CI/CD](#11-docker--cicd)
 12. [Internal Penetration Testing](#12-internal-penetration-testing)
-13. [Commit Strategy](#13-commit-strategy)
-14. [Known Limitations](#14-known-limitations)
 
 ---
 
@@ -366,19 +364,3 @@ A white-box internal penetration test was performed against this codebase coveri
 > Formal methodology (OWASP WSTG v4.2 mapping), CVSS v3.1 ratings per finding, Burp Suite request/response evidence, and remediation/retest evidence for each vulnerability belong in a separate `SECURITY_REPORT.md` / coursework report deliverable — see that document for the full write-up expected by the coursework's Section 4.2-4.3 requirements. This README summarizes what's implemented, not the formal test log.
 
 ---
-
-## 13. Commit Strategy
-
-Development followed small, security-decision-mapped commits (40+ across the project) — e.g. "fix: Stripe webhook registered after express.json() destroyed raw body," "fix: PaymentIntent/CheckoutSession ID mismatch left transactions pending," "feat: AES-256-GCM encryption for MFA secrets," "fix: strip video URL only for paid, non-preview lessons." Commit messages are written to be legible evidence for the coursework's "commits demonstrate incremental security improvements" requirement — each fix commit names the vulnerability/bug and the mechanism of the fix, not just "fix bug."
-
----
-
-## 14. Known Limitations
-
-Documented honestly rather than hidden, per good security-reporting practice:
-
-- **No password-less/passkey option yet** — rubric lists this as an advanced/optional item; not implemented.
-- **No real-time monitoring _alerts_** (e.g. Slack/email push on anomalous activity) — audit logging exists and is queryable via `/api/admin/logs`, but there's no push-alert layer on top of it yet.
-- **Accessibility** has not been formally tested with a screen reader / axe-core audit — the UI uses semantic HTML and Tailwind's default focus states, but this hasn't been verified against WCAG success criteria.
-- **IDOR/mass-assignment test coverage** — server-side ownership checks exist (e.g. `req.user.sub` is always the source of truth, never a client-sent `userId`), but a dedicated IDOR fuzzing pass with Burp Intruder, with before/after evidence, still needs to be run and documented for the formal pentest report.
-- The Payment Element billing-address field is now collected in-page (`fields.billingDetails.address: "auto"`) rather than suppressed — this was a real bug (Stripe's `IntegrationError`) found and fixed during development; see git history.
