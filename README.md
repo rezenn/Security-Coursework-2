@@ -20,7 +20,6 @@
 12. [Internal Penetration Testing](#12-internal-penetration-testing)
 13. [Commit Strategy](#13-commit-strategy)
 14. [Known Limitations](#14-known-limitations)
-15. [References](#15-references)
 
 ---
 
@@ -383,9 +382,3 @@ Documented honestly rather than hidden, per good security-reporting practice:
 - **Accessibility** has not been formally tested with a screen reader / axe-core audit — the UI uses semantic HTML and Tailwind's default focus states, but this hasn't been verified against WCAG success criteria.
 - **IDOR/mass-assignment test coverage** — server-side ownership checks exist (e.g. `req.user.sub` is always the source of truth, never a client-sent `userId`), but a dedicated IDOR fuzzing pass with Burp Intruder, with before/after evidence, still needs to be run and documented for the formal pentest report.
 - The Payment Element billing-address field is now collected in-page (`fields.billingDetails.address: "auto"`) rather than suppressed — this was a real bug (Stripe's `IntegrationError`) found and fixed during development; see git history.
-
----
-
-## 15. References
-
-_(Populate with your actual sources for the coursework report — minimum 15 academic/professional references, CU Harvard or CU APA style, per the brief. Suggested categories to cover: OWASP ASVS/WSTG, NIST SP 800-63B (password guidance), NIST SP 800-115 (pentest methodology), Stripe's own security documentation, RFC 6238 (TOTP), RFC 7519 (JWT), OWASP API Security Top 10.)_
