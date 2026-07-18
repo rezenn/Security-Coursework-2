@@ -1,5 +1,7 @@
 import { Request, Response } from "express";
 import User from "../models/user.model";
+import Course from "../models/course.model";
+import Transaction from "../models/transaction.model";
 import { logSecurityEvent } from "../utils/logger.utils";
 import fs from "fs";
 import path from "path";
@@ -122,9 +124,6 @@ export const getAuditLogs = async (
 
 // GET /api/admin/stats
 export const getStats = async (_req: Request, res: Response): Promise<void> => {
-  const { default: Course } = await import("../models/course.model");
-  const { default: Transaction } = await import("../models/transaction.model");
-
   const [totalUsers, totalCourses, totalTransactions, revenueAgg] =
     await Promise.all([
       User.countDocuments(),
