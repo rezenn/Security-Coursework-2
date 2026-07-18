@@ -405,6 +405,3 @@ Documented honestly rather than hidden, per good security-reporting practice:
 - **Magic-byte verification covers four image formats** (JPEG/PNG/GIF/WEBP) — sufficient for this application's upload surface, but not a general-purpose file-type sniffer.
 - **Honeytoken routes are static**, not dynamically randomized per deployment — an attacker with prior knowledge of this specific codebase could avoid them; acceptable for a coursework threat model, not for a real production deployment.
 - **Third-party dependency risk** is mitigated (CI `npm audit`) but not eliminated — no runtime SCA/WAF layer.
-
-
-_(Populate with your actual sources for the coursework report — minimum 15 academic/professional references, CU Harvard or CU APA style, per the brief. Suggested categories: OWASP ASVS/WSTG, OWASP Cheat Sheet Series (SSRF, File Upload, CSRF), NIST SP 800-63B (digital identity), NIST SP 800-61 (incident handling), Stripe security documentation, RFC 6238 (TOTP), RFC 7519 (JWT), MITRE CWE entries for each vulnerability class tested.)_
