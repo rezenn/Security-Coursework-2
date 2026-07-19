@@ -1,8 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Required for the Docker multi-stage build (Dockerfile copies
-  // .next/standalone) — produces a minimal, self-contained server bundle.
-  output: "standalone",
+  output: process.env.DOCKER_BUILD === "true" ? "standalone" : undefined,
 
   async rewrites() {
     return [
